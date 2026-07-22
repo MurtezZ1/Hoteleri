@@ -240,3 +240,200 @@ Date: 2026-07-22
 - Proration is represented as a provider boundary but not implemented with real Stripe invoice previews.
 - Failed payment, grace-period automation, suspension/reactivation workflows, and invoice retry jobs are not fully automated yet.
 - Staff, automation, reports, booking-engine, and channel-manager limits need deeper enforcement at each future module endpoint.
+
+## Loop 5 - WhatsApp Messaging Architecture
+
+Date: 2026-07-22
+
+### Completed
+
+- Added provider-independent WhatsApp architecture with `WhatsAppProvider`, mock provider, Twilio provider boundary, Meta Cloud provider boundary, and provider factory.
+- Added Prisma WhatsApp models for connections, recipients, templates, messages, webhook events, plus guest WhatsApp consent/opt-out fields.
+- Added BullMQ/Redis queue for WhatsApp sends with retry, idempotent job IDs, health counts, worker processing, and dead-letter status.
+- Added webhook endpoints for mock, Twilio, and Meta with duplicate event protection and tenant resolution from configured sender numbers.
+- Added `/settings/whatsapp` and `/messages` UI.
+- Added WhatsApp tests for queuing, staff notifications, duplicate webhooks, tenant resolution, STARTER gating, credential masking, and invalid webhook verification.
+
+### Verification Results
+
+- Install: passed after adding `bullmq` and `ioredis`; npm audit reported 0 vulnerabilities.
+- Prisma migration `20260722180905_whatsapp_integration` was generated and applied.
+- Prisma validate/generate/migrate: passed.
+- Lint: passed.
+- TypeScript checks: passed.
+- Tests: passed; API 31/31 and Web 2/2.
+- Production build: passed.
+- Docker API image: built as `odeoniflow-api:whatsapp`.
+- Docker Web image: built as `odeoniflow-web:whatsapp` and inspected successfully.
+- Runtime mock send: verified a test WhatsApp message moved from `QUEUED` to `SENT`.
+
+### Remaining WhatsApp Risk
+
+- Real Twilio and Meta outbound API calls require credentials, approvals, and final provider HTTP integration.
+- Full WhatsApp session-window enforcement and all event-specific automations are not complete.
+- `format:check` exists but currently fails because the broader existing repository is not Prettier-formatted.
+- `test:integration` and `test:e2e` scripts are still missing.
+
+## Loop 6 - Feature Parity Audit And Reservation Concurrency
+
+Date: 2026-07-22
+
+### Completed
+
+- Audited the repository against public PMS/channel-manager/booking-engine/payment/messaging/security requirements.
+- Reviewed the public reference website only for advertised feature categories and documented gaps without copying protected assets or text.
+- Created `docs/FEATURE_PARITY_AUDIT.md`.
+- Added `ReservationIdempotencyRecord` for persistent reservation idempotency.
+- Added `BLOCKED` and `MAINTENANCE` reservation statuses for future calendar inventory blocks.
+- Added `Idempotency-Key` header support on `POST /reservations`.
+- Moved reservation creation into a PostgreSQL serializable transaction.
+- Revalidated room overlap inside the transaction using the required overlap condition.
+- Added serialization retry handling for Prisma `P2034`.
+- Return HTTP 409 for overlapping reservation conflicts or idempotency-key misuse.
+
+### Verification Results
+
+- Prisma validate: passed.
+- Prisma migration `20260722185937_reservation_idempotency_concurrency` was generated and applied.
+- Prisma generate: passed during migration.
+
+### Remaining Reservation Risk
+
+- True parallel integration tests against PostgreSQL are still needed to prove exactly-one-success behavior under concurrent requests.
+- Reservation update, date resize, room reassignment, cancellation, and inventory restoration need the same transaction/idempotency protection.
+
+## Loop 7 - Front Desk Operations
+
+Date: 2026-07-22
+
+### Completed
+
+- Added a dedicated Front Desk backend module with `GET /front-desk/:propertyId`.
+- Enforced JWT auth, `frontdesk.view` permission, tenant/property access, active subscription entitlement, DTO validation, and audit logging before returning operations data.
+- Added `pms.frontdesk` subscription feature gating at the Starter plan level.
+- Added owner/seed permissions for front desk management, check-in, check-out, room assignment, no-show handling, payments, and invoices.
+- Added a protected `/front-desk` Next.js page linked from the app shell navigation.
+- Built the Front Desk UI for property/date/status/search filters, operational metrics, alerts, quick actions, reservation tables, outstanding balances, and room readiness.
+- Added service tests proving tenant-scoped success, cross-tenant denial before data access, and subscription denial before data access.
+
+### Verification Results
+
+- Lint: passed across all workspaces.
+- TypeScript checks: passed across all workspaces.
+- Tests: passed; API 36/36 and Web 2/2.
+
+### Remaining Front Desk Risk
+
+- Quick actions currently route users to existing modules; they do not yet execute transactional domain workflows.
+- Dedicated endpoints are still required for check-in, check-out, assign/change room, mark no-show, record payment, add charge, generate invoice, mark room clean, and create maintenance issue.
+- Browser E2E tests should verify permission-driven visibility and full front desk workflows after those action endpoints are implemented.
+
+## Loop 8 - Front Desk Domain Actions
+
+Date: 2026-07-22
+
+### Completed
+
+- Added a reservation transition validator with structured `INVALID_RESERVATION_TRANSITION` conflict errors.
+- Added transactional reservation action endpoints for assign room, change room, check-in, check-out, and no-show.
+- Added payment recording on reservations with Decimal-safe balance calculation, refund validation, recorded-by metadata, and best-effort idempotency lookup.
+- Added invoice generation endpoint with unique local invoice numbering, immutable line snapshots, currency, generated-by metadata, and PDF path placeholder.
+- Added housekeeping task creation endpoint and automatic checkout housekeeping task creation.
+- Added maintenance issue creation endpoint and room blocking behavior when the issue blocks sale.
+- Added room operational/housekeeping/maintenance status update endpoint.
+- Added audit logging for room assignment/change, check-in, check-out, no-show, payment/refund, invoice, housekeeping, maintenance, and room status changes.
+- Connected `/front-desk` quick actions to real modals and backend calls instead of redirects to generic CRUD pages.
+- Added migration `20260722213205_init` for reservation lifecycle fields, `ReservationRoomChange`, expanded payment/invoice/housekeeping/maintenance operational fields, and new enum values.
+- Added front desk action tests for room assignment, maintenance-room denial, overlap conflict, invalid check-in transition, payment idempotency, and checkout housekeeping synchronization.
+
+### Verification Results
+
+- Prisma validate: passed before migration.
+- Prisma generate: passed.
+- Prisma migration `20260722213205_init`: created and applied.
+- Lint: passed before documentation update.
+- TypeScript checks: passed before documentation update.
+- Tests: passed before documentation update; API 42/42 and Web 2/2.
+
+### Remaining Front Desk Action Risk
+
+- Property timezone, early check-in, deposit/payment policy, force checkout permission split, and full check-in identity policy are simplified and need configurable policy models.
+- Payment idempotency is service-level with an index, not a dedicated strict idempotency table.
+- Invoice PDF download path is stored, but real PDF generation/render verification is not complete.
+- Email/WhatsApp notifications are not yet triggered for every action after commit.
+- Maintenance channel-sync outbox event is not yet implemented.
+- Browser E2E tests for the new Front Desk modals are still missing.
+
+## Loop 9 - Live Reservation Calendar
+
+Date: 2026-07-23
+
+### Completed
+
+- Replaced the static calendar mock with a real protected `/calendar` workspace.
+- Added `CalendarModule` with a compact tenant-scoped timeline API.
+- Added `GET /calendar/timeline` with property/date/room type/room/status/source/search/cancelled/no-show filters and a 62-day range limit.
+- Added `PATCH /reservations/:reservationId/calendar-move` and `PATCH /reservations/:reservationId/calendar-resize`.
+- Added `POST /calendar/blocks`.
+- Added `CalendarBlock` and `CalendarBlockType` to Prisma, with composite timeline indexes.
+- Calendar move/resize uses serializable transactions, overlap validation, calendar-block validation, room status validation, terminal-state validation, audit logging, room-change history, and optimistic concurrency through `expectedUpdatedAt`.
+- Empty-slot reservation creation uses the existing reservation creation endpoint and sends an `Idempotency-Key`.
+- Added UI for day/week/14-day views, previous/next/today navigation, property selector, filters, room grouped rows, reservation bars, current-day marker, weekend distinction, room state indicators, block indicators, mobile list fallback, details modal, create modal, edit-stay modal, and block creation.
+- Added backend CalendarService tests for timeline fetch, tenant denial, range validation, move success, stale move rejection, overlap rejection, and block creation.
+
+### Verification Results
+
+- TypeScript checks: passed before migration and tests.
+- Tests: passed before final validation; API 49/49 and Web 2/2.
+- Prisma migration `20260722222935_init`: created and applied.
+
+### Remaining Calendar Risk
+
+- Browser E2E has not been added, so drag/drop rollback and visual behavior are not browser-verified.
+- Calendar block deletion/update endpoints are not implemented yet.
+- Calendar blocks are local inventory blocks; channel-manager outbox sync is still pending.
+- Advanced rate/min-stay/max-stay policies are not enforced during calendar moves.
+- Large-property virtualization is basic; the UI uses horizontal scrolling and should be virtualized later for very large hotels.
+
+## Loop 9 Hardening - Calendar Blocks, Outbox, Idempotency, Policies, PDF
+
+Date: 2026-07-23
+
+### Completed
+
+- Added `PATCH /calendar/blocks/:blockId` and `DELETE /calendar/blocks/:blockId`.
+- Added soft delete to `CalendarBlock`.
+- Added `InventoryOutboxEvent`, `InventoryOutboxStatus`, and `InventoryOutboxEventType`.
+- Added a local `InventoryOutboxService` dispatcher foundation for safe post-transaction processing.
+- Added outbox event creation in calendar move, block create/update/delete, reservation creation, room assignment/change, check-in, check-out, no-show, and maintenance room blocking.
+- Added `PaymentIdempotencyRecord` and request hashing for reservation payment idempotency.
+- Added `PropertyOperationalPolicy` and enforced core check-in/check-out policy flags.
+- Added invoice PDF download endpoint: `GET /invoices/:invoiceId/download`.
+- Added local PDF generation and tenant-safe local invoice storage path.
+- Added calendar block update/delete tests.
+- Ran full repository Prettier formatting; `format:check` now passes.
+
+### Verification Results
+
+- `npm run format:check`: passed after formatting cleanup.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run db:generate`: passed.
+- `npm run db:migrate`: migration `20260722225707_init` created/applied; final run already in sync.
+- `npm run test`: passed; API 51/51 and Web 2/2.
+- `npm run build`: passed.
+- `npm install`: passed with 3 existing audit advisories.
+- `docker compose config`: passed.
+- `docker build -f apps/api/Dockerfile -t odeoniflow-api:local .`: passed.
+- `docker build -f apps/web/Dockerfile -t odeoniflow-web:local .`: passed.
+- Local regex secret scan: no real provider credentials found; only normal code references to token/password/secret variables matched.
+
+### Remaining Hardening Risk
+
+- `npm audit --audit-level=moderate`: still fails on Next transitive `postcss`/`sharp` advisories; npm currently suggests `npm audit fix --force`, which would apply a breaking downgrade path and was not run.
+- Browser E2E infrastructure and Playwright workflow tests are still missing.
+- Outbox dispatcher is local/mock; real OTA/channel publishing is not active.
+- Payment idempotency has unit behavior, but true concurrent duplicate integration testing still needs a database-level parallel test.
+- Invoice PDF is real and valid but intentionally minimal; rich templates, logo handling, cloud storage, and fiscal compliance are not implemented.
+- Property policy engine covers core flags but not full timezone/DST/early-check-in/no-show cutoff scenarios yet.
+- Loop 10 was not started in this pass because browser E2E and full room/rate/availability work are large enough to require a separate implementation loop.
