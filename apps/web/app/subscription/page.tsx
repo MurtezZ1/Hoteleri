@@ -2,6 +2,7 @@
 
 import { CheckCircle2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { AppShell } from '../../components/app-shell';
 import { apiGet, apiPost, CompanySummary, ensureDemoSession } from '../../lib/client-api';
 
 interface Plan {
@@ -19,9 +20,55 @@ interface Plan {
   channelManager: boolean;
 }
 
+const fallbackPlans: Plan[] = [
+  {
+    code: 'STARTER',
+    name: 'Starter',
+    description: 'Small property operations with basic reports.',
+    monthlyPriceCents: 4900,
+    yearlyPriceCents: 49000,
+    maxProperties: 1,
+    maxRooms: 10,
+    maxStaffUsers: 3,
+    advancedReports: false,
+    premiumAutomation: false,
+    bookingEngine: false,
+    channelManager: false,
+  },
+  {
+    code: 'PRO',
+    name: 'Pro',
+    description: 'Growing hotel teams with automations and channel architecture.',
+    monthlyPriceCents: 14900,
+    yearlyPriceCents: 149000,
+    maxProperties: 5,
+    maxRooms: 100,
+    maxStaffUsers: 20,
+    advancedReports: true,
+    premiumAutomation: true,
+    bookingEngine: true,
+    channelManager: true,
+  },
+  {
+    code: 'ENTERPRISE',
+    name: 'Enterprise',
+    description: 'Custom limits and pricing for multi-brand operators.',
+    monthlyPriceCents: 0,
+    yearlyPriceCents: 0,
+    maxProperties: 2147483647,
+    maxRooms: 2147483647,
+    maxStaffUsers: 2147483647,
+    advancedReports: true,
+    premiumAutomation: true,
+    bookingEngine: true,
+    channelManager: true,
+  },
+];
+
 export default function SubscriptionPage(): React.ReactElement {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [companyId, setCompanyId] = useState<string>();
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string>();
 
   useEffect(() => {
@@ -29,10 +76,24 @@ export default function SubscriptionPage(): React.ReactElement {
   }, []);
 
   async function loadSubscription(): Promise<void> {
-    const token = await ensureDemoSession();
-    const [planRows, companies] = await Promise.all([apiGet<Plan[]>('/billing/plans', token), apiGet<CompanySummary[]>('/companies/mine', token)]);
-    setPlans(planRows);
-    setCompanyId(companies[0]?.id);
+    setLoading(true);
+    try {
+      const planRows = await apiGet<Plan[]>('/billing/plans');
+      setPlans(planRows.length > 0 ? planRows : fallbackPlans);
+    } catch {
+      setPlans(fallbackPlans);
+      setMessage('Backend is not reachable, showing local subscription plans.');
+    }
+
+    try {
+      const token = await ensureDemoSession();
+      const companies = await apiGet<CompanySummary[]>('/companies/mine', token);
+      setCompanyId(companies[0]?.id);
+    } catch {
+      setCompanyId(undefined);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function changePlan(planCode: string): Promise<void> {
@@ -40,17 +101,22 @@ export default function SubscriptionPage(): React.ReactElement {
       setMessage('Company context is not ready.');
       return;
     }
-    const token = await ensureDemoSession();
-    await apiPost('/billing/change-plan', { companyId, planCode, interval: 'MONTHLY' }, token);
-    setMessage(`${planCode} subscription activated with the mock billing provider.`);
+    try {
+      const token = await ensureDemoSession();
+      await apiPost('/billing/change-plan', { companyId, planCode, interval: 'MONTHLY' }, token);
+      setMessage(`${planCode} subscription activated with the mock billing provider.`);
+    } catch {
+      setMessage('Could not update subscription because the API is not reachable.');
+    }
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6 lg:pl-80">
+    <AppShell>
       <section className="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Subscription</p>
         <h1 className="mt-2 text-2xl font-semibold text-navy">Plans and subscription</h1>
         {message ? <p className="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{message}</p> : null}
+        {loading ? <p className="mt-4 rounded-md bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">Loading subscription plans...</p> : null}
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           {plans.map((plan) => (
             <article className="rounded-md border border-slate-200 p-5" key={plan.code}>
@@ -78,6 +144,6 @@ export default function SubscriptionPage(): React.ReactElement {
           ))}
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }
