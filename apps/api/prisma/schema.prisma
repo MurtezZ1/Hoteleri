@@ -25,6 +25,27 @@ enum SecurityEventSeverity {
   CRITICAL
 }
 
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionLifecycleStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  GRACE_PERIOD
+  SUSPENDED
+  CANCELED
+}
+
+enum BillingEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  DUPLICATE
+}
+
 enum SystemRole {
   PLATFORM_SUPER_ADMIN
   HOTEL_OWNER
@@ -288,6 +309,11 @@ model Company {
   moduleRecords ModuleRecord[]
   invitations   UserInvitation[]
   subscription  Subscription?
+  billingCustomer BillingCustomer?
+  subscriptionInvoices SubscriptionInvoice[]
+  billingEvents BillingEvent[]
+  usageRecords UsageRecord[]
+  webhookEvents WebhookEvent[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   deletedAt     DateTime?
@@ -779,9 +805,144 @@ model Subscription {
   plan      String
   status    String
   seats     Int      @default(3)
+  planId    String?
+  billingCustomerId String?
+  interval  BillingInterval @default(MONTHLY)
+  lifecycleStatus SubscriptionLifecycleStatus @default(TRIALING)
+  currentPeriodStart DateTime?
+  currentPeriodEnd DateTime?
+  trialEndsAt DateTime?
+  cancelAtPeriodEnd Boolean @default(false)
+  canceledAt DateTime?
+  graceEndsAt DateTime?
+  suspendedAt DateTime?
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subscriptionPlan SubscriptionPlan? @relation(fields: [planId], references: [id])
+  billingCustomer BillingCustomer? @relation(fields: [billingCustomerId], references: [id])
+  invoices  SubscriptionInvoice[]
+  usageRecords UsageRecord[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model SubscriptionPlan {
+  id                 String   @id @default(uuid())
+  code               String   @unique
+  name               String
+  description        String?
+  monthlyPriceCents  Int
+  yearlyPriceCents   Int
+  currency           String   @default("USD")
+  maxProperties      Int
+  maxRooms           Int
+  maxStaffUsers      Int
+  basicReports       Boolean  @default(true)
+  advancedReports    Boolean  @default(false)
+  premiumAutomation  Boolean  @default(false)
+  bookingEngine      Boolean  @default(false)
+  channelManager     Boolean  @default(false)
+  active             Boolean  @default(true)
+  subscriptions      Subscription[]
+  entitlements       FeatureEntitlement[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model FeatureEntitlement {
+  id        String   @id @default(uuid())
+  planId    String
+  feature   String
+  enabled   Boolean  @default(false)
+  limit     Int?
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, feature])
+}
+
+model BillingCustomer {
+  id                  String   @id @default(uuid())
+  companyId           String   @unique
+  provider            String   @default("mock")
+  providerCustomerId  String?
+  email               String?
+  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subscriptions       Subscription[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model SubscriptionInvoice {
+  id               String   @id @default(uuid())
+  companyId        String
+  subscriptionId   String
+  provider         String   @default("mock")
+  providerInvoiceId String?
+  invoiceNumber    String
+  status           String
+  currency         String   @default("USD")
+  subtotalCents    Int
+  taxCents         Int      @default(0)
+  totalCents       Int
+  paidAt           DateTime?
+  dueAt            DateTime?
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subscription     Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([companyId, invoiceNumber])
+  @@index([subscriptionId, createdAt])
+}
+
+model BillingEvent {
+  id              String             @id @default(uuid())
+  companyId       String
+  provider        String             @default("mock")
+  providerEventId String?
+  type            String
+  status          BillingEventStatus @default(RECEIVED)
+  payload         Json
+  processedAt     DateTime?
+  errorMessage    String?
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt       DateTime           @default(now())
+
+  @@unique([provider, providerEventId])
+  @@index([companyId, createdAt])
+}
+
+model UsageRecord {
+  id             String   @id @default(uuid())
+  companyId      String
+  subscriptionId String?
+  metric         String
+  quantity       Int
+  periodStart    DateTime
+  periodEnd      DateTime
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+
+  @@index([companyId, metric, periodStart, periodEnd])
+}
+
+model WebhookEvent {
+  id              String             @id @default(uuid())
+  companyId       String?
+  provider        String
+  providerEventId String
+  signature       String?
+  status          BillingEventStatus @default(RECEIVED)
+  payload         Json
+  processedAt     DateTime?
+  errorMessage    String?
+  company         Company?           @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  createdAt       DateTime           @default(now())
+
+  @@unique([provider, providerEventId])
+  @@index([companyId, createdAt])
 }
 
 model BookingPageSetting {

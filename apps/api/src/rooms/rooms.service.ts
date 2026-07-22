@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { SubscriptionGuardService } from '../common/subscription-guard.service';
 import { TenantAccessService } from '../common/tenant-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRoomDto, CreateRoomTypeDto } from './dto';
@@ -8,6 +9,7 @@ export class RoomsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenants: TenantAccessService,
+    private readonly subscriptions: SubscriptionGuardService,
   ) {}
 
   async createRoomType(userId: string, dto: CreateRoomTypeDto) {
@@ -17,6 +19,7 @@ export class RoomsService {
 
   async createRoom(userId: string, dto: CreateRoomDto) {
     await this.tenants.assertPropertyAccess(userId, dto.propertyId);
+    await this.subscriptions.assertCanCreateRoom(dto.companyId);
     return this.prisma.room.create({ data: dto });
   }
 

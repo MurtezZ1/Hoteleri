@@ -205,3 +205,38 @@ Date: 2026-07-22
 - MFA is still only architecture-ready, not implemented as a user-facing factor enrollment/challenge flow.
 - Session/device UI is functional but minimal and not yet integrated into role-driven settings navigation.
 - Docker image validation is still blocked by transient container network failures to npm registry, not by application code.
+
+## Loop 4 - Subscriptions And Billing Domain
+
+Date: 2026-07-22
+
+### Completed
+
+- Added billing Prisma models: `SubscriptionPlan`, `BillingCustomer`, `SubscriptionInvoice`, `BillingEvent`, `UsageRecord`, `FeatureEntitlement`, and `WebhookEvent`.
+- Expanded `Subscription` with billing interval, lifecycle status, period dates, trial/cancel/grace/suspension fields, plan relation, customer relation, invoices, and usage records.
+- Added default plan catalog for Starter, Pro, and Enterprise with property, room, staff, reporting, automation, booking engine, and channel manager entitlements.
+- Added `BillingProvider` interface with local `MockBillingProvider` and a Stripe provider placeholder that explicitly requires real credentials before use.
+- Added billing endpoints for plans, current company subscription, change plan, cancellation, and mock webhook ingestion.
+- Added duplicate webhook event detection and duplicate billing event logging.
+- Enforced room limits in backend subscription guard in addition to existing property limits.
+- Added billing UI at `/billing` and linked it from the sidebar.
+- Added billing tests for plan seeding, mock upgrade/invoice creation, duplicate webhook handling, property limits, and room limits.
+
+### Verification Results
+
+- Prisma migration `20260722164854_billing_domain` was generated and applied.
+- Lint: passed across all workspaces.
+- TypeScript checks: passed across all workspaces.
+- Tests: passed; API 23/23 and Web 1/1.
+- Prisma migration deploy: passed; no pending migrations.
+- Prisma generate: passed.
+- Production build: passed across all workspaces.
+- Dependency audit: still reports the known Next.js transitive `postcss` and optional `sharp` advisories; destructive downgrade was not applied.
+- Docker API/Web image builds: still blocked by repeated `ECONNRESET` failures while `npm ci` fetched packages from `registry.npmjs.org` inside Docker.
+
+### Remaining Billing Risk
+
+- Stripe is architecture-only; live payment operations require credentials, webhook secret, and production provider setup.
+- Proration is represented as a provider boundary but not implemented with real Stripe invoice previews.
+- Failed payment, grace-period automation, suspension/reactivation workflows, and invoice retry jobs are not fully automated yet.
+- Staff, automation, reports, booking-engine, and channel-manager limits need deeper enforcement at each future module endpoint.
