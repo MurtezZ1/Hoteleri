@@ -12,12 +12,22 @@ export interface BillingProvider {
     planCode: string;
     interval: BillingInterval;
   }): Promise<CheckoutResult>;
-  cancelSubscription(input: { providerSubscriptionId?: string; atPeriodEnd: boolean }): Promise<void>;
-  verifyWebhookSignature(input: { payload: unknown; signature?: string }): boolean;
+  cancelSubscription(input: {
+    providerSubscriptionId?: string;
+    atPeriodEnd: boolean;
+  }): Promise<void>;
+  verifyWebhookSignature(input: {
+    payload: unknown;
+    signature?: string;
+  }): boolean;
 }
 
 export class MockBillingProvider implements BillingProvider {
-  async createOrUpdateSubscription(input: { companyId: string; planCode: string; interval: BillingInterval }): Promise<CheckoutResult> {
+  async createOrUpdateSubscription(input: {
+    companyId: string;
+    planCode: string;
+    interval: BillingInterval;
+  }): Promise<CheckoutResult> {
     return {
       provider: 'mock',
       providerCustomerId: `mock_customer_${input.companyId}`,
@@ -36,11 +46,15 @@ export class MockBillingProvider implements BillingProvider {
 
 export class StripeBillingProvider implements BillingProvider {
   async createOrUpdateSubscription(): Promise<CheckoutResult> {
-    throw new Error('Stripe billing provider requires live Stripe credentials and is not enabled for local tests.');
+    throw new Error(
+      'Stripe billing provider requires live Stripe credentials and is not enabled for local tests.',
+    );
   }
 
   async cancelSubscription(): Promise<void> {
-    throw new Error('Stripe billing provider requires live Stripe credentials and is not enabled for local tests.');
+    throw new Error(
+      'Stripe billing provider requires live Stripe credentials and is not enabled for local tests.',
+    );
   }
 
   verifyWebhookSignature(): boolean {

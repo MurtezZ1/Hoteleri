@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { ConflictException, HttpException } from '@nestjs/common';
 import { BillingInterval } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
 import { BillingService } from '../src/billing/billing.service';
@@ -7,7 +7,12 @@ import { SubscriptionGuardService } from '../src/common/subscription-guard.servi
 function createBillingService() {
   const prisma = {
     subscriptionPlan: {
-      upsert: vi.fn((input) => Promise.resolve({ id: `${input.where.code.toLowerCase()}-plan`, ...input.create })),
+      upsert: vi.fn((input) =>
+        Promise.resolve({
+          id: `${input.where.code.toLowerCase()}-plan`,
+          ...input.create,
+        }),
+      ),
       findMany: vi.fn().mockResolvedValue([]),
       findUnique: vi.fn().mockResolvedValue({
         id: 'pro-plan',
@@ -37,7 +42,11 @@ function createBillingService() {
     },
   };
   const tenants = { assertCompanyAccess: vi.fn().mockResolvedValue(undefined) };
-  return { service: new BillingService(prisma as never, tenants as never), prisma, tenants };
+  return {
+    service: new BillingService(prisma as never, tenants as never),
+    prisma,
+    tenants,
+  };
 }
 
 describe('BillingService', () => {
@@ -47,17 +56,28 @@ describe('BillingService', () => {
     await service.ensureDefaultPlans();
 
     expect(prisma.subscriptionPlan.upsert).toHaveBeenCalledTimes(3);
-    expect(prisma.subscriptionPlan.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { code: 'STARTER' } }));
-    expect(prisma.subscriptionPlan.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { code: 'PRO' } }));
+    expect(prisma.subscriptionPlan.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { code: 'STARTER' } }),
+    );
+    expect(prisma.subscriptionPlan.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { code: 'PRO' } }),
+    );
   });
 
   it('updates subscription plan through the mock provider and creates an invoice', async () => {
     const { service, prisma } = createBillingService();
 
-    await service.changePlan('user-1', 'company-1', 'PRO', BillingInterval.MONTHLY);
+    await service.changePlan(
+      'user-1',
+      'company-1',
+      'PRO',
+      BillingInterval.MONTHLY,
+    );
 
     expect(prisma.billingCustomer.upsert).toHaveBeenCalledOnce();
-    expect(prisma.subscription.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { companyId: 'company-1' } }));
+    expect(prisma.subscription.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { companyId: 'company-1' } }),
+    );
     expect(prisma.subscriptionInvoice.create).toHaveBeenCalledOnce();
   });
 
@@ -65,8 +85,18 @@ describe('BillingService', () => {
     const { service, prisma } = createBillingService();
     prisma.webhookEvent.findUnique.mockResolvedValue({ id: 'existing' });
 
-    await expect(service.recordMockWebhook({ companyId: 'company-1', providerEventId: 'evt-1', type: 'invoice.paid' })).rejects.toBeInstanceOf(ConflictException);
-    expect(prisma.billingEvent.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'DUPLICATE' }) }));
+    await expect(
+      service.recordMockWebhook({
+        companyId: 'company-1',
+        providerEventId: 'evt-1',
+        type: 'invoice.paid',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.billingEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'DUPLICATE' }),
+      }),
+    );
   });
 });
 
@@ -86,7 +116,11 @@ describe('SubscriptionGuardService', () => {
     };
     const service = new SubscriptionGuardService(prisma as never);
 
-    await expect(service.assertCanCreateProperty('company-1')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.assertCanCreateProperty('company-1'),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'PLAN_LIMIT_REACHED' }),
+    });
   });
 
   it('blocks room creation beyond the plan limit', async () => {
@@ -104,6 +138,28 @@ describe('SubscriptionGuardService', () => {
     };
     const service = new SubscriptionGuardService(prisma as never);
 
-    await expect(service.assertCanCreateRoom('company-1')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.assertCanCreateRoom('company-1'),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'PLAN_LIMIT_REACHED' }),
+    });
+  });
+
+  it('requires a subscription before mutating business records', async () => {
+    const prisma = {
+      subscription: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    };
+    const service = new SubscriptionGuardService(prisma as never);
+
+    await expect(
+      service.assertCanMutate('company-1', 'guests.create'),
+    ).rejects.toBeInstanceOf(HttpException);
+    await expect(
+      service.assertCanMutate('company-1', 'guests.create'),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'SUBSCRIPTION_REQUIRED' }),
+    });
   });
 });

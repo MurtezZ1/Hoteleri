@@ -24,8 +24,15 @@ async function bootstrap(): Promise<void> {
     }),
   );
   app.use(json({ limit: config.get<string>('REQUEST_BODY_LIMIT') ?? '1mb' }));
-  app.use(urlencoded({ extended: true, limit: config.get<string>('REQUEST_BODY_LIMIT') ?? '1mb' }));
-  const allowedOrigins = (config.get<string>('WEB_ORIGIN') ?? 'http://localhost:3000')
+  app.use(
+    urlencoded({
+      extended: true,
+      limit: config.get<string>('REQUEST_BODY_LIMIT') ?? '1mb',
+    }),
+  );
+  const allowedOrigins = (
+    config.get<string>('WEB_ORIGIN') ?? 'http://localhost:3000'
+  )
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
@@ -45,7 +52,11 @@ async function bootstrap(): Promise<void> {
     .setVersion('0.1.0')
     .addBearerAuth()
     .build();
-  SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
+  SwaggerModule.setup(
+    'docs',
+    app,
+    SwaggerModule.createDocument(app, swaggerConfig),
+  );
 
   app.enableShutdownHooks();
   await app.listen(Number(config.get<string>('API_PORT') ?? 4000));
@@ -55,7 +66,9 @@ function assertRequiredEnv(config: ConfigService): void {
   const required = ['DATABASE_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'];
   const missing = required.filter((key) => !config.get<string>(key));
   if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+    throw new Error(
+      `Missing required environment variables: ${missing.join(', ')}`,
+    );
   }
   if (config.get<string>('NODE_ENV') === 'production') {
     for (const key of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET']) {

@@ -82,6 +82,8 @@ enum ReservationStatus {
   CHECKED_OUT
   CANCELLED
   NO_SHOW
+  BLOCKED
+  MAINTENANCE
 }
 
 enum BookingSource {
@@ -98,9 +100,11 @@ enum BookingSource {
 enum PaymentMethod {
   CASH
   CARD
+  CARD_AT_PROPERTY
   BANK_TRANSFER
   ONLINE
   MOCK
+  OTHER
 }
 
 enum PaymentStatus {
@@ -109,6 +113,13 @@ enum PaymentStatus {
   PAID
   REFUNDED
   OVERDUE
+}
+
+enum PaymentType {
+  DEPOSIT
+  PARTIAL
+  FULL
+  REFUND
 }
 
 enum AutomationTrigger {
@@ -140,6 +151,47 @@ enum MessageStatus {
   FAILED
 }
 
+enum WhatsAppProviderType {
+  MOCK
+  TWILIO
+  META
+}
+
+enum WhatsAppConnectionStatus {
+  DISCONNECTED
+  PENDING
+  CONNECTED
+  FAILED
+}
+
+enum WhatsAppTemplateStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  DISABLED
+}
+
+enum WhatsAppMessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum WhatsAppMessageType {
+  TEMPLATE
+  SESSION
+  INTERNAL_NOTIFICATION
+}
+
+enum WhatsAppMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  DEAD_LETTER
+}
+
 enum ChannelProvider {
   AIRBNB
   BOOKING_COM
@@ -152,14 +204,59 @@ enum ChannelProvider {
 
 enum HousekeepingStatus {
   TODO
+  PENDING
   IN_PROGRESS
   DONE
+  COMPLETED
+  INSPECTED
+  CANCELLED
 }
 
 enum MaintenanceStatus {
   OPEN
   IN_PROGRESS
   RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum CalendarBlockType {
+  BLOCKED
+  MAINTENANCE
+}
+
+enum InventoryOutboxStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum InventoryOutboxEventType {
+  RESERVATION_CREATED
+  RESERVATION_UPDATED
+  RESERVATION_CANCELLED
+  ROOM_ASSIGNED
+  ROOM_CHANGED
+  CHECKED_IN
+  CHECKED_OUT
+  NO_SHOW
+  CALENDAR_BLOCK_CREATED
+  CALENDAR_BLOCK_UPDATED
+  CALENDAR_BLOCK_DELETED
+  ROOM_BLOCKED
+  ROOM_UNBLOCKED
+  ROOM_MAINTENANCE_STARTED
+  ROOM_MAINTENANCE_ENDED
+  RATE_UPDATED
+  RESTRICTION_UPDATED
+  INVENTORY_OVERRIDE_UPDATED
+}
+
+enum PaymentIdempotencyStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
 }
 
 model User {
@@ -302,6 +399,7 @@ model Company {
   roles         Role[]
   guests        Guest[]
   reservations  Reservation[]
+  reservationIdempotencyRecords ReservationIdempotencyRecord[]
   payments      Payment[]
   invoices      Invoice[]
   auditLogs     AuditLog[]
@@ -314,6 +412,11 @@ model Company {
   billingEvents BillingEvent[]
   usageRecords UsageRecord[]
   webhookEvents WebhookEvent[]
+  whatsappConnections WhatsAppConnection[]
+  whatsappRecipients WhatsAppRecipient[]
+  whatsappTemplates WhatsAppTemplate[]
+  whatsappMessages WhatsAppMessage[]
+  whatsappWebhookEvents WhatsAppWebhookEvent[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   deletedAt     DateTime?
@@ -399,8 +502,10 @@ model Property {
   channelConnections  ChannelConnection[]
   housekeepingTasks   HousekeepingTask[]
   maintenanceIssues   MaintenanceIssue[]
+  calendarBlocks      CalendarBlock[]
   bookingPageSetting  BookingPageSetting?
   invitations         UserInvitation[]
+  whatsappMessages    WhatsAppMessage[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   deletedAt           DateTime?
@@ -460,14 +565,18 @@ model Room {
   property      Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   roomType      RoomType          @relation(fields: [roomTypeId], references: [id])
   reservations  ReservationRoom[]
+  oldRoomChanges ReservationRoomChange[] @relation("OldRoomChanges")
+  newRoomChanges ReservationRoomChange[] @relation("NewRoomChanges")
   housekeepingTasks HousekeepingTask[]
   maintenanceIssues MaintenanceIssue[]
+  calendarBlocks CalendarBlock[]
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   deletedAt     DateTime?
 
   @@unique([propertyId, name])
   @@index([companyId, propertyId, roomTypeId])
+  @@index([propertyId, status, cleaningStatus, maintenanceStatus])
 }
 
 model Amenity {
@@ -492,6 +601,11 @@ model Guest {
   fullName            String
   email               String?
   phone               String?
+  whatsappConsent     Boolean            @default(false)
+  whatsappConsentAt   DateTime?
+  whatsappConsentSource String?
+  whatsappOptedOut    Boolean            @default(false)
+  preferredCommunicationChannel String?
   country             String?
   address             String?
   identificationDoc   String?
@@ -504,6 +618,7 @@ model Guest {
   company             Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reservations        Reservation[]
   reservationGuests   ReservationGuest[]
+  whatsappMessages    WhatsAppMessage[]
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   deletedAt           DateTime?
@@ -531,6 +646,12 @@ model Reservation {
   paymentStatus   PaymentStatus      @default(UNPAID)
   internalNotes   String?
   history         Json?
+  checkedInAt     DateTime?
+  checkedOutAt    DateTime?
+  noShowAt        DateTime?
+  checkedInByUserId String?
+  checkedOutByUserId String?
+  noShowByUserId  String?
   company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   property        Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   guest           Guest              @relation(fields: [guestId], references: [id])
@@ -541,12 +662,142 @@ model Reservation {
   invoices        Invoice[]
   messageLogs     MessageLog[]
   channelReservations ChannelReservation[]
+  whatsappMessages WhatsAppMessage[]
+  idempotencyRecords ReservationIdempotencyRecord[]
+  roomChanges     ReservationRoomChange[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   deletedAt       DateTime?
 
   @@index([companyId, propertyId, checkInDate, checkOutDate])
+  @@index([propertyId, status, checkInDate, checkOutDate])
   @@index([guestId])
+}
+
+model CalendarBlock {
+  id                 String            @id @default(uuid())
+  companyId          String
+  propertyId         String
+  roomId             String
+  type               CalendarBlockType
+  startDate          DateTime
+  endDate            DateTime
+  reason             String
+  maintenanceIssueId String?
+  createdByUserId    String
+  deletedAt          DateTime?
+  property           Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  room               Room              @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  maintenanceIssue   MaintenanceIssue? @relation(fields: [maintenanceIssueId], references: [id], onDelete: SetNull)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([companyId, propertyId, roomId, startDate, endDate])
+  @@index([propertyId, type, startDate, endDate])
+}
+
+model InventoryOutboxEvent {
+  id              String                    @id @default(uuid())
+  companyId       String
+  propertyId      String
+  roomId          String?
+  roomTypeId      String?
+  reservationId   String?
+  calendarBlockId String?
+  eventType       InventoryOutboxEventType
+  payload         Json
+  status          InventoryOutboxStatus     @default(PENDING)
+  attempts        Int                       @default(0)
+  availableAt     DateTime                  @default(now())
+  processedAt     DateTime?
+  lastError       String?
+  idempotencyKey  String
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@unique([companyId, idempotencyKey])
+  @@index([status, availableAt])
+  @@index([companyId, propertyId, status, createdAt])
+}
+
+model PaymentIdempotencyRecord {
+  id              String                    @id @default(uuid())
+  companyId       String
+  reservationId   String
+  idempotencyKey  String
+  requestHash     String
+  paymentId       String?
+  responsePayload Json?
+  status          PaymentIdempotencyStatus  @default(PROCESSING)
+  expiresAt       DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@unique([companyId, idempotencyKey])
+  @@index([reservationId, status])
+  @@index([expiresAt])
+}
+
+model PropertyOperationalPolicy {
+  id                                  String   @id @default(uuid())
+  propertyId                          String   @unique
+  timezone                            String   @default("UTC")
+  standardCheckInTime                 String   @default("15:00")
+  standardCheckOutTime                String   @default("11:00")
+  allowEarlyCheckIn                   Boolean  @default(false)
+  earliestEarlyCheckInTime            String?
+  allowLateCheckOut                   Boolean  @default(false)
+  latestLateCheckOutTime              String?
+  requireCleanRoomForCheckIn          Boolean  @default(true)
+  requireGuestDetailsForCheckIn       Boolean  @default(true)
+  requireIdentificationConfirmation   Boolean  @default(true)
+  requireDepositBeforeCheckIn         Boolean  @default(false)
+  minimumDepositType                  String   @default("NONE")
+  minimumDepositValue                 Decimal  @default(0)
+  requireFullPaymentBeforeCheckout    Boolean  @default(false)
+  allowForceCheckout                  Boolean  @default(true)
+  autoGenerateInvoiceOnCheckout       Boolean  @default(true)
+  createHousekeepingTaskOnCheckout    Boolean  @default(true)
+  noShowCutoffTime                    String   @default("23:59")
+  createdAt                           DateTime @default(now())
+  updatedAt                           DateTime @updatedAt
+}
+
+model ReservationRoomChange {
+  id              String      @id @default(uuid())
+  companyId       String
+  propertyId      String
+  reservationId   String
+  oldRoomId       String?
+  newRoomId       String
+  reason          String?
+  changedByUserId String
+  changedAt       DateTime    @default(now())
+  reservation     Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  oldRoom         Room?       @relation("OldRoomChanges", fields: [oldRoomId], references: [id])
+  newRoom         Room        @relation("NewRoomChanges", fields: [newRoomId], references: [id])
+
+  @@index([companyId, propertyId, reservationId])
+  @@index([oldRoomId])
+  @@index([newRoomId])
+}
+
+model ReservationIdempotencyRecord {
+  id              String      @id @default(uuid())
+  companyId       String
+  idempotencyKey  String
+  requestHash     String
+  reservationId   String?
+  status          String
+  response        Json?
+  errorMessage    String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  company         Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reservation     Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, idempotencyKey])
+  @@index([companyId, status, createdAt])
 }
 
 model ReservationGuest {
@@ -584,16 +835,23 @@ model Payment {
   companyId     String
   reservationId String
   method        PaymentMethod
+  type          PaymentType   @default(PARTIAL)
   status        PaymentStatus @default(PARTIALLY_PAID)
   amount        Decimal
   currency      String
   provider      String        @default("mock")
   providerRef   String?
+  idempotencyKey String?
+  notes         String?
+  recordedByUserId String?
   paidAt        DateTime?
   company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reservation   Reservation   @relation(fields: [reservationId], references: [id], onDelete: Cascade)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+
+  @@index([companyId, idempotencyKey])
+  @@index([companyId, reservationId])
 }
 
 model Invoice {
@@ -608,6 +866,9 @@ model Invoice {
   total           Decimal
   paidAmount      Decimal       @default(0)
   remainingAmount Decimal
+  currency        String        @default("USD")
+  pdfPath         String?
+  generatedByUserId String?
   dueDate         DateTime?
   company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reservation     Reservation   @relation(fields: [reservationId], references: [id], onDelete: Cascade)
@@ -616,6 +877,7 @@ model Invoice {
   updatedAt       DateTime      @updatedAt
 
   @@unique([companyId, invoiceNumber])
+  @@index([companyId, reservationId])
 }
 
 model InvoiceItem {
@@ -738,13 +1000,18 @@ model HousekeepingTask {
   companyId   String
   propertyId  String
   roomId      String
+  reservationId String?
   title       String
   status      HousekeepingStatus @default(TODO)
   priority    Int                @default(2)
   assignedTo  String?
+  assignedToUserId String?
   notes       String?
+  checklist   Json?
   dueDate     DateTime?
+  dueAt       DateTime?
   completedAt DateTime?
+  createdByUserId String?
   property    Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   room        Room               @relation(fields: [roomId], references: [id])
   createdAt   DateTime           @default(now())
@@ -761,8 +1028,16 @@ model MaintenanceIssue {
   title       String
   description String
   status      MaintenanceStatus @default(OPEN)
+  category    String?
+  priority    Int               @default(2)
+  assignedToUserId String?
+  estimatedCost Decimal?
+  actualCost  Decimal?
+  blocksRoomFromSale Boolean     @default(false)
+  notes       String?
   property    Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   room        Room?             @relation(fields: [roomId], references: [id])
+  calendarBlocks CalendarBlock[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 }
@@ -943,6 +1218,116 @@ model WebhookEvent {
 
   @@unique([provider, providerEventId])
   @@index([companyId, createdAt])
+}
+
+model WhatsAppConnection {
+  id                    String                    @id @default(uuid())
+  companyId             String
+  provider              WhatsAppProviderType
+  businessAccountId     String?
+  phoneNumberId         String?
+  senderPhoneNumber     String
+  encryptedAccessToken  String?
+  encryptedRefreshToken String?
+  status                WhatsAppConnectionStatus @default(PENDING)
+  verifiedAt            DateTime?
+  company               Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  @@unique([companyId, provider, senderPhoneNumber])
+  @@index([senderPhoneNumber, status])
+  @@index([companyId, status])
+}
+
+model WhatsAppRecipient {
+  id                String   @id @default(uuid())
+  companyId         String
+  name              String
+  phoneNumber       String
+  notificationTypes String[] @default([])
+  isActive          Boolean  @default(true)
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([companyId, phoneNumber])
+  @@index([companyId, isActive])
+}
+
+model WhatsAppTemplate {
+  id                 String                @id @default(uuid())
+  companyId          String
+  providerTemplateId String?
+  name               String
+  language           String
+  category           String
+  eventType          String
+  bodyPreview        String
+  status             WhatsAppTemplateStatus @default(DRAFT)
+  isActive           Boolean               @default(true)
+  company            Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  messages           WhatsAppMessage[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@unique([companyId, name, language])
+  @@index([companyId, eventType, isActive])
+}
+
+model WhatsAppMessage {
+  id                String                   @id @default(uuid())
+  companyId         String
+  propertyId        String?
+  reservationId     String?
+  guestId           String?
+  direction         WhatsAppMessageDirection
+  recipientPhone    String
+  senderPhone       String?
+  messageType       WhatsAppMessageType
+  templateId        String?
+  body              String
+  providerMessageId String?
+  idempotencyKey    String
+  status            WhatsAppMessageStatus    @default(QUEUED)
+  errorCode         String?
+  errorMessage      String?
+  queuedAt          DateTime                 @default(now())
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  company           Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  property          Property?                @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  reservation       Reservation?             @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  guest             Guest?                   @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  template          WhatsAppTemplate?        @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@unique([companyId, idempotencyKey])
+  @@unique([providerMessageId])
+  @@index([companyId, status, queuedAt])
+  @@index([companyId, recipientPhone, createdAt])
+  @@index([reservationId])
+  @@index([guestId])
+}
+
+model WhatsAppWebhookEvent {
+  id              String              @id @default(uuid())
+  provider        WhatsAppProviderType
+  providerEventId String
+  companyId       String?
+  payloadHash     String
+  processedAt     DateTime?
+  status          BillingEventStatus  @default(RECEIVED)
+  errorMessage    String?
+  company         Company?            @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  createdAt       DateTime            @default(now())
+
+  @@unique([provider, providerEventId])
+  @@index([companyId, createdAt])
+  @@index([payloadHash])
 }
 
 model BookingPageSetting {

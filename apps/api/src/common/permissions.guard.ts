@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { SystemRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,10 +25,10 @@ export class PermissionsGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const required = this.reflector.getAllAndOverride<string[]>(REQUIRED_PERMISSIONS_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const required = this.reflector.getAllAndOverride<string[]>(
+      REQUIRED_PERMISSIONS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!required?.length) {
       return true;
@@ -54,11 +59,18 @@ export class PermissionsGuard implements CanActivate {
 
     const allowed = memberships.some((membership) => {
       const systemRole = membership.role.systemRole;
-      if (systemRole === SystemRole.PLATFORM_SUPER_ADMIN || systemRole === SystemRole.HOTEL_OWNER) {
+      if (
+        systemRole === SystemRole.PLATFORM_SUPER_ADMIN ||
+        systemRole === SystemRole.HOTEL_OWNER
+      ) {
         return true;
       }
 
-      const granted = new Set(membership.role.permissions.map((rolePermission) => rolePermission.permission.key));
+      const granted = new Set(
+        membership.role.permissions.map(
+          (rolePermission) => rolePermission.permission.key,
+        ),
+      );
       return required.every((permission) => granted.has(permission));
     });
 
@@ -75,7 +87,8 @@ export class PermissionsGuard implements CanActivate {
     this.addString(ids, request.query?.companyId);
     this.addString(ids, this.bodyString(request.body, 'companyId'));
 
-    const propertyId = request.params?.propertyId ?? this.bodyString(request.body, 'propertyId');
+    const propertyId =
+      request.params?.propertyId ?? this.bodyString(request.body, 'propertyId');
     if (propertyId) {
       const property = await this.prisma.property.findUnique({
         where: { id: propertyId },
@@ -93,6 +106,17 @@ export class PermissionsGuard implements CanActivate {
       this.addString(ids, record?.companyId);
     }
 
+    const reservationId =
+      request.params?.reservationId ??
+      this.bodyString(request.body, 'reservationId');
+    if (reservationId) {
+      const reservation = await this.prisma.reservation.findUnique({
+        where: { id: reservationId },
+        select: { companyId: true },
+      });
+      this.addString(ids, reservation?.companyId);
+    }
+
     return [...ids];
   }
 
@@ -102,7 +126,10 @@ export class PermissionsGuard implements CanActivate {
     }
   }
 
-  private bodyString(body: Record<string, unknown> | undefined, key: string): string | undefined {
+  private bodyString(
+    body: Record<string, unknown> | undefined,
+    key: string,
+  ): string | undefined {
     const value = body?.[key];
     return typeof value === 'string' ? value : undefined;
   }

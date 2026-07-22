@@ -1,5 +1,13 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
-import { BillingEventStatus, BillingInterval, SubscriptionLifecycleStatus } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
+import {
+  BillingEventStatus,
+  BillingInterval,
+  SubscriptionLifecycleStatus,
+} from '@prisma/client';
 import { TenantAccessService } from '../common/tenant-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BillingProvider, MockBillingProvider } from './billing-provider';
@@ -22,7 +30,8 @@ const planCatalog = [
   {
     code: 'PRO',
     name: 'Pro',
-    description: 'Growing hotel teams with automations and channel architecture.',
+    description:
+      'Growing hotel teams with automations and channel architecture.',
     monthlyPriceCents: 14900,
     yearlyPriceCents: 149000,
     maxProperties: 5,
@@ -72,7 +81,10 @@ export class BillingService {
 
   async plans() {
     await this.ensureDefaultPlans();
-    return this.prisma.subscriptionPlan.findMany({ where: { active: true }, orderBy: { monthlyPriceCents: 'asc' } });
+    return this.prisma.subscriptionPlan.findMany({
+      where: { active: true },
+      orderBy: { monthlyPriceCents: 'asc' },
+    });
   }
 
   async subscription(userId: string, companyId: string) {
@@ -80,26 +92,50 @@ export class BillingService {
     await this.ensureDefaultPlans();
     return this.prisma.subscription.findUnique({
       where: { companyId },
-      include: { subscriptionPlan: true, invoices: { orderBy: { createdAt: 'desc' }, take: 12 } },
+      include: {
+        subscriptionPlan: true,
+        invoices: { orderBy: { createdAt: 'desc' }, take: 12 },
+      },
     });
   }
 
-  async changePlan(userId: string, companyId: string, planCode: string, interval: BillingInterval) {
+  async changePlan(
+    userId: string,
+    companyId: string,
+    planCode: string,
+    interval: BillingInterval,
+  ) {
     await this.tenants.assertCompanyAccess(userId, companyId);
     await this.ensureDefaultPlans();
-    const plan = await this.prisma.subscriptionPlan.findUnique({ where: { code: planCode.toUpperCase() } });
+    const plan = await this.prisma.subscriptionPlan.findUnique({
+      where: { code: planCode.toUpperCase() },
+    });
     if (!plan) {
       throw new BadRequestException('Unknown subscription plan.');
     }
 
-    const providerResult = await this.provider.createOrUpdateSubscription({ companyId, planCode: plan.code, interval });
+    const providerResult = await this.provider.createOrUpdateSubscription({
+      companyId,
+      planCode: plan.code,
+      interval,
+    });
     const billingCustomer = await this.prisma.billingCustomer.upsert({
       where: { companyId },
-      update: { provider: providerResult.provider, providerCustomerId: providerResult.providerCustomerId },
-      create: { companyId, provider: providerResult.provider, providerCustomerId: providerResult.providerCustomerId },
+      update: {
+        provider: providerResult.provider,
+        providerCustomerId: providerResult.providerCustomerId,
+      },
+      create: {
+        companyId,
+        provider: providerResult.provider,
+        providerCustomerId: providerResult.providerCustomerId,
+      },
     });
     const now = new Date();
-    const currentPeriodEnd = interval === BillingInterval.YEARLY ? addYears(now, 1) : addMonths(now, 1);
+    const currentPeriodEnd =
+      interval === BillingInterval.YEARLY
+        ? addYears(now, 1)
+        : addMonths(now, 1);
     const subscription = await this.prisma.subscription.upsert({
       where: { companyId },
       update: {
@@ -136,7 +172,9 @@ export class BillingService {
 
   async cancel(userId: string, companyId: string, atPeriodEnd: boolean) {
     await this.tenants.assertCompanyAccess(userId, companyId);
-    const subscription = await this.prisma.subscription.findUnique({ where: { companyId } });
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { companyId },
+    });
     if (!subscription) {
       throw new BadRequestException('Subscription not found.');
     }
@@ -145,11 +183,20 @@ export class BillingService {
       where: { companyId },
       data: atPeriodEnd
         ? { cancelAtPeriodEnd: true }
-        : { lifecycleStatus: SubscriptionLifecycleStatus.CANCELED, status: 'canceled', canceledAt: new Date() },
+        : {
+            lifecycleStatus: SubscriptionLifecycleStatus.CANCELED,
+            status: 'canceled',
+            canceledAt: new Date(),
+          },
     });
   }
 
-  async recordMockWebhook(input: { providerEventId: string; companyId: string; type: string; signature?: string }) {
+  async recordMockWebhook(input: {
+    providerEventId: string;
+    companyId: string;
+    type: string;
+    signature?: string;
+  }) {
     const signatureOk = this.provider.verifyWebhookSignature({
       payload: input,
       ...(input.signature ? { signature: input.signature } : {}),
@@ -158,7 +205,12 @@ export class BillingService {
       throw new BadRequestException('Invalid webhook signature.');
     }
     const existing = await this.prisma.webhookEvent.findUnique({
-      where: { provider_providerEventId: { provider: 'mock', providerEventId: input.providerEventId } },
+      where: {
+        provider_providerEventId: {
+          provider: 'mock',
+          providerEventId: input.providerEventId,
+        },
+      },
     });
     if (existing) {
       await this.prisma.billingEvent.create({
@@ -197,8 +249,21 @@ export class BillingService {
     });
   }
 
-  private async createInvoice(companyId: string, subscriptionId: string, plan: { code: string; monthlyPriceCents: number; yearlyPriceCents: number; currency: string }, interval: BillingInterval) {
-    const totalCents = interval === BillingInterval.YEARLY ? plan.yearlyPriceCents : plan.monthlyPriceCents;
+  private async createInvoice(
+    companyId: string,
+    subscriptionId: string,
+    plan: {
+      code: string;
+      monthlyPriceCents: number;
+      yearlyPriceCents: number;
+      currency: string;
+    },
+    interval: BillingInterval,
+  ) {
+    const totalCents =
+      interval === BillingInterval.YEARLY
+        ? plan.yearlyPriceCents
+        : plan.monthlyPriceCents;
     return this.prisma.subscriptionInvoice.create({
       data: {
         companyId,

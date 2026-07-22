@@ -9,12 +9,20 @@ export class HealthController {
 
   @Get('health')
   health() {
-    return { status: 'ok', service: 'odeoniflow-api', timestamp: new Date().toISOString() };
+    return {
+      status: 'ok',
+      service: 'odeoniflow-api',
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get('ready')
   async ready() {
     await this.prisma.$queryRaw`SELECT 1`;
-    return { status: 'ready', service: 'odeoniflow-api', timestamp: new Date().toISOString() };
+    return {
+      status: 'ready',
+      service: 'odeoniflow-api',
+      timestamp: new Date().toISOString(),
+    };
   }
 }

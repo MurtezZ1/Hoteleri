@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { SystemRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -21,10 +25,13 @@ export class TenantAccessService {
     }
   }
 
-  async assertPropertyAccess(userId: string, propertyId: string): Promise<{ companyId: string }> {
+  async assertPropertyAccess(
+    userId: string,
+    propertyId: string,
+  ): Promise<{ companyId: string; currency: string }> {
     const property = await this.prisma.property.findFirst({
       where: { id: propertyId, deletedAt: null },
-      select: { companyId: true },
+      select: { companyId: true, currency: true },
     });
     if (!property) {
       throw new NotFoundException('Property not found.');

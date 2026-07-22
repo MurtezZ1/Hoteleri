@@ -1,6 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PropertyType } from '@prisma/client';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreatePropertyDto {
   @ApiProperty()

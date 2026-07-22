@@ -12,7 +12,9 @@ export class ReservationRepository {
         roomId: { in: roomIds },
         reservation: {
           deletedAt: null,
-          status: { notIn: [ReservationStatus.CANCELLED, ReservationStatus.NO_SHOW] },
+          status: {
+            notIn: [ReservationStatus.CANCELLED, ReservationStatus.NO_SHOW],
+          },
           checkInDate: { lt: checkOutDate },
           checkOutDate: { gt: checkInDate },
         },

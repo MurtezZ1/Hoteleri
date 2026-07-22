@@ -6,7 +6,17 @@ import { PrismaService } from './prisma.service';
 
 @Global()
 @Module({
-  providers: [PrismaService, TenantAccessService, SubscriptionGuardService, PermissionsGuard],
-  exports: [PrismaService, TenantAccessService, SubscriptionGuardService, PermissionsGuard],
+  providers: [
+    PrismaService,
+    TenantAccessService,
+    SubscriptionGuardService,
+    PermissionsGuard,
+  ],
+  exports: [
+    PrismaService,
+    TenantAccessService,
+    SubscriptionGuardService,
+    PermissionsGuard,
+  ],
 })
 export class PrismaModule {}

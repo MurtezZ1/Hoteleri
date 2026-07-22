@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { SubscriptionGuardService } from '../common/subscription-guard.service';
 import { TenantAccessService } from '../common/tenant-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertModuleRecordDto } from './dto';
@@ -8,9 +9,16 @@ export class ModuleRecordsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenants: TenantAccessService,
+    private readonly subscriptions: SubscriptionGuardService,
   ) {}
 
-  async list(userId: string, moduleKey: string, companyId: string, q?: string, status?: string) {
+  async list(
+    userId: string,
+    moduleKey: string,
+    companyId: string,
+    q?: string,
+    status?: string,
+  ) {
     await this.tenants.assertCompanyAccess(userId, companyId);
     return this.prisma.moduleRecord.findMany({
       where: {
@@ -36,6 +44,10 @@ export class ModuleRecordsService {
 
   async create(userId: string, moduleKey: string, dto: UpsertModuleRecordDto) {
     await this.tenants.assertCompanyAccess(userId, dto.companyId);
+    await this.subscriptions.assertCanMutate(
+      dto.companyId,
+      this.featureForModule(moduleKey),
+    );
     return this.prisma.moduleRecord.create({
       data: {
         ...this.toData(dto),
@@ -45,9 +57,20 @@ export class ModuleRecordsService {
     });
   }
 
-  async update(userId: string, moduleKey: string, id: string, dto: UpsertModuleRecordDto) {
+  async update(
+    userId: string,
+    moduleKey: string,
+    id: string,
+    dto: UpsertModuleRecordDto,
+  ) {
     await this.tenants.assertCompanyAccess(userId, dto.companyId);
-    const existing = await this.prisma.moduleRecord.findFirst({ where: { id, moduleKey, companyId: dto.companyId, deletedAt: null } });
+    await this.subscriptions.assertCanMutate(
+      dto.companyId,
+      this.featureForModule(moduleKey),
+    );
+    const existing = await this.prisma.moduleRecord.findFirst({
+      where: { id, moduleKey, companyId: dto.companyId, deletedAt: null },
+    });
     if (!existing) {
       throw new NotFoundException('Record not found.');
     }
@@ -58,12 +81,21 @@ export class ModuleRecordsService {
   }
 
   async remove(userId: string, moduleKey: string, id: string) {
-    const existing = await this.prisma.moduleRecord.findFirst({ where: { id, moduleKey, deletedAt: null } });
+    const existing = await this.prisma.moduleRecord.findFirst({
+      where: { id, moduleKey, deletedAt: null },
+    });
     if (!existing) {
       throw new NotFoundException('Record not found.');
     }
     await this.tenants.assertCompanyAccess(userId, existing.companyId);
-    await this.prisma.moduleRecord.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.subscriptions.assertCanMutate(
+      existing.companyId,
+      this.featureForModule(moduleKey),
+    );
+    await this.prisma.moduleRecord.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
     return { id, deleted: true };
   }
 
@@ -77,5 +109,16 @@ export class ModuleRecordsService {
       channel: dto.channel,
       notes: dto.notes ?? null,
     };
+  }
+
+  private featureForModule(moduleKey: string): string {
+    const normalized = moduleKey.toLowerCase();
+    const features: Record<string, string> = {
+      automations: 'automations.manage',
+      'booking-engine': 'booking-engine.manage',
+      channels: 'channels.manage',
+      reports: 'reports.advanced',
+    };
+    return features[normalized] ?? `${normalized}.manage`;
   }
 }

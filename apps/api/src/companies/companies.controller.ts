@@ -1,6 +1,9 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { CurrentUser, AuthenticatedUser } from '../common/current-user.decorator';
+import {
+  CurrentUser,
+  AuthenticatedUser,
+} from '../common/current-user.decorator';
 import { JwtAuthGuard } from '../common/jwt-auth.guard';
 import { CompaniesService } from './companies.service';
 

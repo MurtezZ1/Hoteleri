@@ -2,8 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { BillingModule } from './billing/billing.module';
+import { CalendarModule } from './calendar/calendar.module';
 import { CompaniesModule } from './companies/companies.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { FrontDeskModule } from './front-desk/front-desk.module';
 import { GuestsModule } from './guests/guests.module';
 import { HealthModule } from './health/health.module';
 import { ModuleRecordsModule } from './module-records/module-records.module';
@@ -11,6 +13,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { PropertiesModule } from './properties/properties.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { RoomsModule } from './rooms/rooms.module';
+import { WhatsAppModule } from './whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -18,14 +21,17 @@ import { RoomsModule } from './rooms/rooms.module';
     PrismaModule,
     AuthModule,
     BillingModule,
+    CalendarModule,
     CompaniesModule,
     PropertiesModule,
     RoomsModule,
     GuestsModule,
+    FrontDeskModule,
     HealthModule,
     ReservationsModule,
     ModuleRecordsModule,
     DashboardModule,
+    WhatsAppModule,
   ],
 })
 export class AppModule {}

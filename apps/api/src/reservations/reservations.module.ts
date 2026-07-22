@@ -1,10 +1,21 @@
 import { Module } from '@nestjs/common';
-import { ReservationRepository } from './reservation.repository';
-import { ReservationsController } from './reservations.controller';
+import {
+  HousekeepingController,
+  InvoicesController,
+  MaintenanceController,
+  ReservationsController,
+} from './reservations.controller';
 import { ReservationsService } from './reservations.service';
+import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 
 @Module({
-  controllers: [ReservationsController],
-  providers: [ReservationsService, ReservationRepository],
+  imports: [WhatsAppModule],
+  controllers: [
+    ReservationsController,
+    HousekeepingController,
+    MaintenanceController,
+    InvoicesController,
+  ],
+  providers: [ReservationsService],
 })
 export class ReservationsModule {}

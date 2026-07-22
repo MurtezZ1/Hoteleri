@@ -15,7 +15,10 @@ export class PropertiesService {
   async create(userId: string, dto: CreatePropertyDto) {
     await this.tenants.assertCompanyAccess(userId, dto.companyId);
     await this.subscriptions.assertCanCreateProperty(dto.companyId);
-    const slug = dto.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const slug = dto.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
     return this.prisma.property.create({
       data: {
         ...dto,

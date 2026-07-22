@@ -15,7 +15,9 @@ function contextWithRequest(request: unknown) {
 
 describe('PermissionsGuard', () => {
   it('allows hotel owners without checking individual permission keys', async () => {
-    const reflector = { getAllAndOverride: vi.fn().mockReturnValue(['guests.view']) };
+    const reflector = {
+      getAllAndOverride: vi.fn().mockReturnValue(['guests.view']),
+    };
     const prisma = {
       property: { findUnique: vi.fn() },
       moduleRecord: { findUnique: vi.fn() },
@@ -33,14 +35,23 @@ describe('PermissionsGuard', () => {
     const guard = new PermissionsGuard(reflector as never, prisma as never);
 
     await expect(
-      guard.canActivate(contextWithRequest({ user: { sub: 'user-1' }, params: { companyId: 'company-1' } }) as never),
+      guard.canActivate(
+        contextWithRequest({
+          user: { sub: 'user-1' },
+          params: { companyId: 'company-1' },
+        }) as never,
+      ),
     ).resolves.toBe(true);
   });
 
   it('rejects users whose role does not include the required permission', async () => {
-    const reflector = { getAllAndOverride: vi.fn().mockReturnValue(['rooms.manage']) };
+    const reflector = {
+      getAllAndOverride: vi.fn().mockReturnValue(['rooms.manage']),
+    };
     const prisma = {
-      property: { findUnique: vi.fn().mockResolvedValue({ companyId: 'company-1' }) },
+      property: {
+        findUnique: vi.fn().mockResolvedValue({ companyId: 'company-1' }),
+      },
       moduleRecord: { findUnique: vi.fn() },
       companyUser: {
         findMany: vi.fn().mockResolvedValue([
@@ -56,7 +67,12 @@ describe('PermissionsGuard', () => {
     const guard = new PermissionsGuard(reflector as never, prisma as never);
 
     await expect(
-      guard.canActivate(contextWithRequest({ user: { sub: 'user-1' }, params: { propertyId: 'property-1' } }) as never),
+      guard.canActivate(
+        contextWithRequest({
+          user: { sub: 'user-1' },
+          params: { propertyId: 'property-1' },
+        }) as never,
+      ),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

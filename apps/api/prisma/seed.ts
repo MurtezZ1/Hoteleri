@@ -1,4 +1,11 @@
-import { PrismaClient, BookingSource, PropertyType, ReservationStatus, RoomStatus, SystemRole } from '@prisma/client';
+import {
+  PrismaClient,
+  BookingSource,
+  PropertyType,
+  ReservationStatus,
+  RoomStatus,
+  SystemRole,
+} from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -8,15 +15,32 @@ const permissions = [
   'reservations.create',
   'reservations.update',
   'reservations.cancel',
+  'frontdesk.view',
+  'frontdesk.manage',
+  'calendar.view',
+  'calendar.manage',
+  'reservations.checkin',
+  'reservations.checkout',
+  'reservations.force-checkout',
+  'reservations.assign-room',
+  'reservations.no-show',
   'guests.view',
   'guests.update',
   'payments.view',
   'payments.create',
+  'payments.manage',
+  'invoices.view',
   'invoices.manage',
+  'housekeeping.manage',
+  'maintenance.manage',
   'reports.view',
   'rooms.manage',
   'staff.manage',
   'settings.manage',
+  'whatsapp.view',
+  'whatsapp.manage',
+  'whatsapp.send',
+  'whatsapp.templates.manage',
 ];
 
 async function main(): Promise<void> {
@@ -57,17 +81,31 @@ async function main(): Promise<void> {
   const ownerRole = await prisma.role.upsert({
     where: { companyId_name: { companyId: company.id, name: 'Owner' } },
     update: {},
-    create: { companyId: company.id, name: 'Owner', systemRole: SystemRole.HOTEL_OWNER },
+    create: {
+      companyId: company.id,
+      name: 'Owner',
+      systemRole: SystemRole.HOTEL_OWNER,
+    },
   });
-  const rolePermissions = await prisma.permission.findMany({ where: { key: { in: permissions } } });
+  const rolePermissions = await prisma.permission.findMany({
+    where: { key: { in: permissions } },
+  });
   await prisma.rolePermission.createMany({
-    data: rolePermissions.map((permission) => ({ roleId: ownerRole.id, permissionId: permission.id })),
+    data: rolePermissions.map((permission) => ({
+      roleId: ownerRole.id,
+      permissionId: permission.id,
+    })),
     skipDuplicates: true,
   });
   await prisma.companyUser.upsert({
     where: { companyId_userId: { companyId: company.id, userId: user.id } },
     update: {},
-    create: { companyId: company.id, userId: user.id, roleId: ownerRole.id, isOwner: true },
+    create: {
+      companyId: company.id,
+      userId: user.id,
+      roleId: ownerRole.id,
+      isOwner: true,
+    },
   });
 
   const property = await prisma.property.upsert({
@@ -77,7 +115,8 @@ async function main(): Promise<void> {
       companyId: company.id,
       name: 'Blue Harbor Suites',
       slug: 'blue-harbor-suites',
-      description: 'A modern coastal boutique hotel with serviced apartment comfort.',
+      description:
+        'A modern coastal boutique hotel with serviced apartment comfort.',
       address: '12 Marina Avenue',
       country: 'Poland',
       city: 'Gdansk',
@@ -115,13 +154,37 @@ async function main(): Promise<void> {
   });
 
   const room101 = await prisma.room.create({
-    data: { companyId: company.id, propertyId: property.id, roomTypeId: deluxe.id, name: '101', status: RoomStatus.RESERVED },
+    data: {
+      companyId: company.id,
+      propertyId: property.id,
+      roomTypeId: deluxe.id,
+      name: '101',
+      status: RoomStatus.RESERVED,
+    },
   });
   await prisma.room.createMany({
     data: [
-      { companyId: company.id, propertyId: property.id, roomTypeId: deluxe.id, name: '102', status: RoomStatus.AVAILABLE },
-      { companyId: company.id, propertyId: property.id, roomTypeId: suite.id, name: '201', status: RoomStatus.AVAILABLE },
-      { companyId: company.id, propertyId: property.id, roomTypeId: suite.id, name: '202', status: RoomStatus.DIRTY },
+      {
+        companyId: company.id,
+        propertyId: property.id,
+        roomTypeId: deluxe.id,
+        name: '102',
+        status: RoomStatus.AVAILABLE,
+      },
+      {
+        companyId: company.id,
+        propertyId: property.id,
+        roomTypeId: suite.id,
+        name: '201',
+        status: RoomStatus.AVAILABLE,
+      },
+      {
+        companyId: company.id,
+        propertyId: property.id,
+        roomTypeId: suite.id,
+        name: '202',
+        status: RoomStatus.DIRTY,
+      },
     ],
     skipDuplicates: true,
   });
