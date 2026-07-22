@@ -192,7 +192,10 @@ Date: 2026-07-22
 - Prisma generate: passed.
 - Tests: passed; API 18/18 and Web 1/1.
 - Production build: passed across all workspaces.
-- Prisma migration deploy: blocked locally because PostgreSQL at `127.0.0.1:5433` is unreachable and Docker Desktop is not exposing its Linux engine pipe.
+- Prisma migration deploy: passed after starting Docker Desktop and bringing up PostgreSQL/Redis with Docker Compose.
+- Seed: passed against the local `odeoniflow` database.
+- Runtime smoke check: API `/api/health` returned `ok`; web `/login` returned HTTP 200.
+- Docker API/Web image builds: blocked by repeated `ECONNRESET` failures while `npm ci` fetched packages from `registry.npmjs.org` inside Docker. Dockerfiles now include npm retry/timeouts, but the container network still failed during this run.
 - Dependency audit: still reports the known Next.js transitive `postcss` and optional `sharp` advisories; destructive downgrade was not applied.
 - Secret scan: no matches found in tracked project files and examples.
 
@@ -201,4 +204,4 @@ Date: 2026-07-22
 - Email delivery is not integrated yet; verification and reset token generation exists, but real outbound email requires Loop 7 provider work.
 - MFA is still only architecture-ready, not implemented as a user-facing factor enrollment/challenge flow.
 - Session/device UI is functional but minimal and not yet integrated into role-driven settings navigation.
-- Migration SQL exists, but it could not be applied in this run because the local database was unreachable.
+- Docker image validation is still blocked by transient container network failures to npm registry, not by application code.

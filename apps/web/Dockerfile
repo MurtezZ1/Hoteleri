@@ -5,7 +5,7 @@ COPY package*.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages ./packages
-RUN npm ci --workspace @odeoniflow/web --include-workspace-root
+RUN npm ci --workspace @odeoniflow/web --include-workspace-root --prefer-offline --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
 FROM deps AS build
 WORKDIR /app
