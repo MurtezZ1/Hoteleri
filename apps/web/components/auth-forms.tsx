@@ -68,7 +68,7 @@ export function RegisterForm(): React.ReactElement {
       <input className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="fullName" placeholder="Full name" required />
       <input className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="companyName" placeholder="Company name" required />
       <input className="h-11 rounded-md border border-slate-200 px-3 text-sm sm:col-span-2" name="email" placeholder="Email" type="email" required />
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm sm:col-span-2" minLength={8} name="password" placeholder="Password" type="password" required />
+      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm sm:col-span-2" minLength={12} name="password" placeholder="Password" type="password" required />
       <Button className="sm:col-span-2" disabled={status.kind === 'loading'} type="submit">
         {status.kind === 'loading' ? 'Creating...' : 'Start onboarding'}
       </Button>

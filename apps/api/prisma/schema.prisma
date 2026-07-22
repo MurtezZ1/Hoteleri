@@ -13,6 +13,18 @@ enum UserStatus {
   DISABLED
 }
 
+enum AuthSessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum SecurityEventSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
 enum SystemRole {
   PLATFORM_SUPER_ADMIN
   HOTEL_OWNER
@@ -138,6 +150,13 @@ model User {
   status              UserStatus    @default(ACTIVE)
   emailVerifiedAt     DateTime?
   refreshTokenHash    String?
+  authSessions        AuthSession[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+  loginAttempts       LoginAttempt[]
+  securityEvents      SecurityEvent[]
+  sentInvitations     UserInvitation[] @relation("InvitationSender")
+  acceptedInvitations UserInvitation[] @relation("InvitationAcceptedUser")
   companyMemberships  CompanyUser[]
   propertyAssignments PropertyUser[]
   auditLogs           AuditLog[]
@@ -145,6 +164,107 @@ model User {
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
   deletedAt           DateTime?
+}
+
+model AuthSession {
+  id               String            @id @default(uuid())
+  userId           String
+  tokenFamilyId    String
+  refreshTokenHash String
+  status           AuthSessionStatus @default(ACTIVE)
+  ipAddress        String?
+  userAgent        String?
+  createdAt        DateTime          @default(now())
+  lastUsedAt       DateTime          @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  revokedReason    String?
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([tokenFamilyId])
+  @@index([expiresAt])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenHash])
+  @@index([userId, expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenHash])
+  @@index([userId, expiresAt])
+}
+
+model LoginAttempt {
+  id        String   @id @default(uuid())
+  email     String
+  userId    String?
+  success   Boolean
+  ipAddress String?
+  userAgent String?
+  reason    String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email, createdAt])
+  @@index([userId, createdAt])
+}
+
+model SecurityEvent {
+  id        String                @id @default(uuid())
+  userId    String?
+  type      String
+  severity  SecurityEventSeverity @default(INFO)
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime              @default(now())
+  user      User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+}
+
+model UserInvitation {
+  id             String    @id @default(uuid())
+  companyId      String
+  email          String
+  roleId         String
+  propertyId     String?
+  tokenHash      String
+  invitedById    String?
+  acceptedUserId String?
+  acceptedAt     DateTime?
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role           Role      @relation(fields: [roleId], references: [id])
+  property       Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  invitedBy      User?     @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedUser   User?     @relation("InvitationAcceptedUser", fields: [acceptedUserId], references: [id], onDelete: SetNull)
+
+  @@unique([tokenHash])
+  @@index([companyId, email])
+  @@index([expiresAt])
 }
 
 model Company {
@@ -166,6 +286,7 @@ model Company {
   auditLogs     AuditLog[]
   notifications Notification[]
   moduleRecords ModuleRecord[]
+  invitations   UserInvitation[]
   subscription  Subscription?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -197,6 +318,7 @@ model Role {
   permissions        RolePermission[]
   companyUsers       CompanyUser[]
   propertyUsers      PropertyUser[]
+  invitations        UserInvitation[]
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -252,6 +374,7 @@ model Property {
   housekeepingTasks   HousekeepingTask[]
   maintenanceIssues   MaintenanceIssue[]
   bookingPageSetting  BookingPageSetting?
+  invitations         UserInvitation[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   deletedAt           DateTime?

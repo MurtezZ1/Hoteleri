@@ -24,7 +24,7 @@ export async function apiPost<TResponse, TBody extends Record<string, unknown>>(
   body: TBody,
   token?: string,
 ): Promise<TResponse> {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const response = await fetchWithRefresh(path, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -40,7 +40,7 @@ export async function apiPost<TResponse, TBody extends Record<string, unknown>>(
 }
 
 export async function apiGet<TResponse>(path: string, token?: string): Promise<TResponse> {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const response = await fetchWithRefresh(path, {
     headers: {
       'content-type': 'application/json',
       ...(token ? { authorization: `Bearer ${token}` } : {}),
@@ -51,6 +51,30 @@ export async function apiGet<TResponse>(path: string, token?: string): Promise<T
     throw new Error(message || `Request failed with status ${response.status}`);
   }
   return response.json() as Promise<TResponse>;
+}
+
+async function fetchWithRefresh(path: string, init: RequestInit): Promise<Response> {
+  const response = await fetch(`${apiBaseUrl}${path}`, init);
+  if (response.status !== 401 || !hasBearer(init)) {
+    return response;
+  }
+
+  const refreshed = await refreshSession();
+  if (!refreshed) {
+    clearSession();
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      window.location.assign('/login');
+    }
+    return response;
+  }
+
+  return fetch(`${apiBaseUrl}${path}`, {
+    ...init,
+    headers: {
+      ...(init.headers as Record<string, string>),
+      authorization: `Bearer ${refreshed.accessToken}`,
+    },
+  });
 }
 
 export function saveSession(payload: AuthPayload): void {
@@ -68,6 +92,15 @@ export function getAccessToken(): string | undefined {
   return token ?? legacyToken ?? undefined;
 }
 
+export function getRefreshToken(): string | undefined {
+  const token = window.localStorage.getItem(`${storagePrefix}.refreshToken`);
+  const legacyToken = window.localStorage.getItem(`${legacyStoragePrefix}.refreshToken`);
+  if (!token && legacyToken) {
+    window.localStorage.setItem(`${storagePrefix}.refreshToken`, legacyToken);
+  }
+  return token ?? legacyToken ?? undefined;
+}
+
 export function clearSession(): void {
   for (const prefix of [storagePrefix, legacyStoragePrefix]) {
     window.localStorage.removeItem(`${prefix}.accessToken`);
@@ -81,10 +114,37 @@ export async function ensureDemoSession(): Promise<string> {
   if (existing && isUsableJwt(existing)) {
     return existing;
   }
+  const refreshed = await refreshSession();
+  if (refreshed) {
+    return refreshed.accessToken;
+  }
+
   clearSession();
   const payload = await loginDemoUser();
   saveSession(payload);
   return payload.accessToken;
+}
+
+export async function refreshSession(): Promise<AuthPayload | undefined> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    return undefined;
+  }
+  try {
+    const response = await fetch(`${apiBaseUrl}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!response.ok) {
+      return undefined;
+    }
+    const payload = (await response.json()) as AuthPayload;
+    saveSession(payload);
+    return payload;
+  } catch {
+    return undefined;
+  }
 }
 
 async function loginDemoUser(): Promise<AuthPayload> {
@@ -99,6 +159,11 @@ async function loginDemoUser(): Promise<AuthPayload> {
       password: 'StayFlow123!',
     });
   }
+}
+
+function hasBearer(init: RequestInit): boolean {
+  const headers = init.headers as Record<string, string> | undefined;
+  return Boolean(headers?.authorization);
 }
 
 function isUsableJwt(token: string): boolean {

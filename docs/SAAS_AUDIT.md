@@ -163,3 +163,42 @@ Date: 2026-07-22
 - Permission coverage exists for current core controllers, but future modules still need endpoint-specific permission keys instead of broad `settings.manage`.
 - Frontend navigation and button visibility are not yet fully driven by backend permission claims.
 - There is still no admin UI for managing roles and permissions.
+
+## Loop 3 - Authentication Hardening
+
+Date: 2026-07-22
+
+### Completed
+
+- Added Prisma auth/security models: `AuthSession`, `EmailVerificationToken`, `PasswordResetToken`, `LoginAttempt`, `SecurityEvent`, and `UserInvitation`.
+- Added rotating opaque refresh tokens stored only as SHA-256 hashes.
+- Added refresh-token family reuse detection that revokes the full token family.
+- Added session metadata: IP address, user agent, creation time, last-used time, expiration, revocation time, and revocation reason.
+- Added auth endpoints for email verification, resend verification, password reset, refresh, logout, logout-all, session listing, selected session revocation, password change, and email change.
+- Added login lockout using configurable failure threshold and time window.
+- Added strong password validation for registration, reset, and password change.
+- Added single-use expiring verification and reset token flows.
+- Added revocation of sessions after password reset and sensitive account changes.
+- Added security event logging for registration, login, reset, verification, lockout, token reuse, password changes, and email changes.
+- Added frontend pages for `/verify-email`, `/reset-password`, and `/settings/sessions`.
+- Added frontend refresh handling: expired access tokens now attempt `/auth/refresh`; failed refresh clears local auth state and redirects to login.
+- Expanded auth tests to cover lockout, verification token acceptance/rejection, reset token acceptance/rejection, refresh rotation, refresh reuse family revocation, logout, and cross-user session deletion rejection.
+
+### Verification Results
+
+- Lint: passed across all workspaces.
+- TypeScript checks: passed across all workspaces.
+- Prisma validate: passed.
+- Prisma generate: passed.
+- Tests: passed; API 18/18 and Web 1/1.
+- Production build: passed across all workspaces.
+- Prisma migration deploy: blocked locally because PostgreSQL at `127.0.0.1:5433` is unreachable and Docker Desktop is not exposing its Linux engine pipe.
+- Dependency audit: still reports the known Next.js transitive `postcss` and optional `sharp` advisories; destructive downgrade was not applied.
+- Secret scan: no matches found in tracked project files and examples.
+
+### Remaining Authentication Risk
+
+- Email delivery is not integrated yet; verification and reset token generation exists, but real outbound email requires Loop 7 provider work.
+- MFA is still only architecture-ready, not implemented as a user-facing factor enrollment/challenge flow.
+- Session/device UI is functional but minimal and not yet integrated into role-driven settings navigation.
+- Migration SQL exists, but it could not be applied in this run because the local database was unreachable.
