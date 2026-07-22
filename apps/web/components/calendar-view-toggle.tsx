@@ -14,7 +14,9 @@ export function CalendarViewToggle(): React.ReactElement {
           <button
             key={view}
             className={`h-8 rounded-md px-3 text-sm font-semibold ${
-              activeView === view ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+              activeView === view
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-600 hover:bg-slate-50'
             }`}
             onClick={() => setActiveView(view)}
             type="button"
@@ -23,7 +25,9 @@ export function CalendarViewToggle(): React.ReactElement {
           </button>
         ))}
       </div>
-      <p className="text-right text-xs font-medium text-slate-500">{activeView} view selected</p>
+      <p className="text-right text-xs font-medium text-slate-500">
+        {activeView} view selected
+      </p>
     </div>
   );
 }

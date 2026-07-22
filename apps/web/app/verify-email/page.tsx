@@ -12,7 +12,10 @@ export default function VerifyEmailPage(): React.ReactElement {
     setError(undefined);
     const form = new FormData(event.currentTarget);
     try {
-      const response = await apiPost<{ message: string }, Record<string, string>>('/auth/verify-email', {
+      const response = await apiPost<
+        { message: string },
+        Record<string, string>
+      >('/auth/verify-email', {
         token: String(form.get('token') ?? ''),
       });
       setMessage(response.message);
@@ -23,18 +26,36 @@ export default function VerifyEmailPage(): React.ReactElement {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <form className="w-full max-w-md rounded-md border border-slate-200 bg-white p-6 shadow-sm" onSubmit={submit}>
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">OdeoniFlow PMS</p>
+      <form
+        className="w-full max-w-md rounded-md border border-slate-200 bg-white p-6 shadow-sm"
+        onSubmit={submit}
+      >
+        <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+          OdeoniFlow PMS
+        </p>
         <h1 className="mt-2 text-2xl font-semibold text-navy">Verify email</h1>
         <label className="mt-6 block text-sm font-medium text-slate-700">
           Verification token
-          <input className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm" name="token" required />
+          <input
+            className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+            name="token"
+            required
+          />
         </label>
-        <button className="mt-5 h-10 w-full rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700" type="submit">
+        <button
+          className="mt-5 h-10 w-full rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+          type="submit"
+        >
           Verify
         </button>
-        {message ? <p className="mt-4 text-sm font-semibold text-emerald-700">{message}</p> : null}
-        {error ? <p className="mt-4 text-sm font-semibold text-red-700">{error}</p> : null}
+        {message ? (
+          <p className="mt-4 text-sm font-semibold text-emerald-700">
+            {message}
+          </p>
+        ) : null}
+        {error ? (
+          <p className="mt-4 text-sm font-semibold text-red-700">{error}</p>
+        ) : null}
       </form>
     </main>
   );

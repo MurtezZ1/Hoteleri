@@ -9,6 +9,7 @@ import {
   FileText,
   Gauge,
   Home,
+  LogOut,
   Hotel,
   Inbox,
   Menu,
@@ -23,10 +24,12 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { logout } from '../lib/client-api';
 
 const navigation = [
   ['Dashboard', Gauge],
+  ['Front Desk', Hotel],
   ['Calendar', CalendarDays],
   ['Reservations', Hotel],
   ['Guests', Users],
@@ -37,6 +40,7 @@ const navigation = [
   ['Invoices', FileText],
   ['Automations', Sparkles],
   ['Messages', MessageSquare],
+  ['WhatsApp Settings', MessageSquare],
   ['Channels', Inbox],
   ['Booking Engine', Home],
   ['Reports', BarChart3],
@@ -45,14 +49,28 @@ const navigation = [
   ['Settings', Settings],
 ] as const;
 
-export function AppShell({ children }: Readonly<{ children: React.ReactNode }>): React.ReactElement {
+export function AppShell({
+  children,
+}: Readonly<{ children: React.ReactNode }>): React.ReactElement {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [previewMode, setPreviewMode] = useState(false);
+
+  useEffect(() => {
+    setPreviewMode(
+      window.localStorage.getItem('odeoniflow.previewMode') === 'true',
+    );
+  }, [pathname]);
 
   function navigationHref(label: string): string {
-    return label === 'Dashboard' ? '/' : `/${label.toLowerCase().replaceAll(' ', '-')}`;
+    if (label === 'WhatsApp Settings') {
+      return '/settings/whatsapp';
+    }
+    return label === 'Dashboard'
+      ? '/dashboard'
+      : `/${label.toLowerCase().replaceAll(' ', '-')}`;
   }
 
   function submitSearch(event: React.FormEvent<HTMLFormElement>): void {
@@ -65,17 +83,27 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>):
 
   const sidebar = (
     <>
-      <Link href="/" className="flex items-center gap-3 rounded-md px-2 py-2" onClick={() => setMobileOpen(false)}>
+      <Link
+        href="/dashboard"
+        className="flex items-center gap-3 rounded-md px-2 py-2"
+        onClick={() => setMobileOpen(false)}
+      >
         <span className="flex h-10 w-10 items-center justify-center rounded-md bg-navy text-lg font-bold text-white shadow-sm">
-          S
+          O
         </span>
         <span>
-          <span className="block text-base font-bold text-navy">OdeoniFlow PMS</span>
-          <span className="block text-xs font-medium text-slate-500">Multi-property command center</span>
+          <span className="block text-base font-bold text-navy">
+            OdeoniFlow PMS
+          </span>
+          <span className="block text-xs font-medium text-slate-500">
+            Multi-property command center
+          </span>
         </span>
       </Link>
       <div className="mt-5 rounded-md border border-blue-100 bg-blue-50 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Active property</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+          Active property
+        </p>
         <p className="mt-1 text-sm font-bold text-navy">Blue Harbor Suites</p>
         <p className="mt-1 text-xs text-slate-500">Gdansk, Poland</p>
       </div>
@@ -89,7 +117,9 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>):
               href={href}
               onClick={() => setMobileOpen(false)}
               className={`flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition ${
-                active ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-navy'
+                active
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-navy'
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -98,6 +128,14 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>):
           );
         })}
       </nav>
+      <button
+        className="mt-5 flex h-10 w-full items-center gap-3 rounded-md border border-slate-200 px-3 text-left text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-navy"
+        onClick={() => void logout()}
+        type="button"
+      >
+        <LogOut className="h-4 w-4" />
+        <span>Logout</span>
+      </button>
     </>
   );
 
@@ -108,7 +146,11 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>):
       </aside>
       {mobileOpen ? (
         <div className="fixed inset-0 z-30 lg:hidden">
-          <button className="absolute inset-0 bg-navy/30" onClick={() => setMobileOpen(false)} type="button" />
+          <button
+            className="absolute inset-0 bg-navy/30"
+            onClick={() => setMobileOpen(false)}
+            type="button"
+          />
           <aside className="relative h-full w-80 max-w-[88vw] overflow-y-auto border-r border-slate-200 bg-white px-4 py-5 shadow-2xl">
             <button
               aria-label="Open navigation"
@@ -135,8 +177,12 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>):
                 <Menu className="h-5 w-5" />
               </button>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Property dashboard</p>
-                <h1 className="text-2xl font-semibold tracking-normal text-navy">Blue Harbor Suites</h1>
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+                  Property dashboard
+                </p>
+                <h1 className="text-2xl font-semibold tracking-normal text-navy">
+                  Blue Harbor Suites
+                </h1>
               </div>
             </div>
             <div className="flex w-full min-w-0 flex-1 items-center justify-end gap-2 sm:w-auto sm:gap-3">
@@ -156,7 +202,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>):
                 className="hidden h-10 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm sm:block"
                 onChange={(event) => {
                   if (event.target.value) {
-                    router.push('/');
+                    router.push('/dashboard');
                   }
                 }}
               >
@@ -183,6 +229,18 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>):
             </div>
           </div>
         </header>
+        {previewMode ? (
+          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 lg:px-8">
+            Preview mode is active. You can explore the interface, but creating
+            or changing business data requires a subscription.
+            <Link
+              className="ml-3 font-semibold text-blue-700 underline"
+              href="/subscription"
+            >
+              Choose plan
+            </Link>
+          </div>
+        ) : null}
         <div className="min-w-0 px-4 py-6 lg:px-8">{children}</div>
       </main>
     </div>

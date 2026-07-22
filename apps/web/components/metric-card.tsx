@@ -13,17 +13,24 @@ const tones: Record<NonNullable<MetricCardProps['tone']>, string> = {
   slate: 'bg-slate-50 text-slate-700 ring-slate-100',
 };
 
-export function MetricCard({ metric, tone = 'blue' }: MetricCardProps): React.ReactElement {
+export function MetricCard({
+  metric,
+  tone = 'blue',
+}: MetricCardProps): React.ReactElement {
   return (
     <section className="rounded-md border border-slate-200 bg-white p-5 shadow-[0_10px_28px_rgba(15,31,61,0.06)]">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium text-slate-500">{metric.label}</p>
-        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md ring-1 ${tones[tone]}`}>
+        <span
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-md ring-1 ${tones[tone]}`}
+        >
           <ArrowUpRight className="h-4 w-4" />
         </span>
       </div>
       <div className="mt-4 flex items-end justify-between gap-3">
-        <strong className="text-3xl font-semibold tracking-normal text-navy">{metric.value}</strong>
+        <strong className="text-3xl font-semibold tracking-normal text-navy">
+          {metric.value}
+        </strong>
         <span className="rounded-md bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
           {metric.trend}
         </span>

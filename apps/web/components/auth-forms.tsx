@@ -3,9 +3,20 @@
 import { Button } from '@odeoniflow/ui';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
-import { apiGet, apiPost, AuthPayload, CompanySummary, getAccessToken, saveSession } from '../lib/client-api';
+import {
+  apiGet,
+  apiPost,
+  AuthPayload,
+  CompanySummary,
+  getAccessToken,
+  resolvePostAuthRoute,
+  saveSession,
+} from '../lib/client-api';
 
-type Status = { kind: 'idle' | 'loading' | 'success' | 'error'; message?: string };
+type Status = {
+  kind: 'idle' | 'loading' | 'success' | 'error';
+  message?: string;
+};
 
 export function LoginForm(): React.ReactElement {
   const router = useRouter();
@@ -16,23 +27,52 @@ export function LoginForm(): React.ReactElement {
     const form = new FormData(event.currentTarget);
     setStatus({ kind: 'loading', message: 'Signing in...' });
     try {
-      const payload = await apiPost<AuthPayload, Record<string, string>>('/auth/login', {
-        email: String(form.get('email') ?? ''),
-        password: String(form.get('password') ?? ''),
-      });
+      const payload = await apiPost<AuthPayload, Record<string, string>>(
+        '/auth/login',
+        {
+          email: String(form.get('email') ?? ''),
+          password: String(form.get('password') ?? ''),
+        },
+      );
       saveSession(payload);
-      setStatus({ kind: 'success', message: 'Signed in. Opening dashboard...' });
-      router.push('/');
+      setStatus({
+        kind: 'success',
+        message: 'Signed in. Opening dashboard...',
+      });
+      router.push(
+        await resolvePostAuthRoute(
+          new URLSearchParams(window.location.search).get('returnTo'),
+        ),
+      );
     } catch {
-      setStatus({ kind: 'error', message: 'Email or password is not correct.' });
+      setStatus({
+        kind: 'error',
+        message: 'Email or password is not correct.',
+      });
     }
   }
 
   return (
     <form className="mt-6 space-y-4" onSubmit={submit}>
-      <input className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm" name="email" placeholder="Email" type="email" required />
-      <input className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm" name="password" placeholder="Password" type="password" required />
-      <Button className="w-full" disabled={status.kind === 'loading'} type="submit">
+      <input
+        className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+        name="email"
+        placeholder="Email"
+        type="email"
+        required
+      />
+      <input
+        className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+        name="password"
+        placeholder="Password"
+        type="password"
+        required
+      />
+      <Button
+        className="w-full"
+        disabled={status.kind === 'loading'}
+        type="submit"
+      >
         {status.kind === 'loading' ? 'Signing in...' : 'Sign in'}
       </Button>
       <FormStatus status={status} />
@@ -49,27 +89,63 @@ export function RegisterForm(): React.ReactElement {
     const form = new FormData(event.currentTarget);
     setStatus({ kind: 'loading', message: 'Creating workspace...' });
     try {
-      const payload = await apiPost<AuthPayload, Record<string, string>>('/auth/register', {
-        fullName: String(form.get('fullName') ?? ''),
-        companyName: String(form.get('companyName') ?? ''),
-        email: String(form.get('email') ?? ''),
-        password: String(form.get('password') ?? ''),
-      });
+      const payload = await apiPost<AuthPayload, Record<string, string>>(
+        '/auth/register',
+        {
+          fullName: String(form.get('fullName') ?? ''),
+          companyName: String(form.get('companyName') ?? ''),
+          email: String(form.get('email') ?? ''),
+          password: String(form.get('password') ?? ''),
+        },
+      );
       saveSession(payload);
-      setStatus({ kind: 'success', message: 'Workspace created. Continue onboarding.' });
-      router.push('/onboarding');
+      setStatus({
+        kind: 'success',
+        message: 'Workspace created. Choose a subscription plan.',
+      });
+      router.push('/choose-plan?returnTo=/dashboard');
     } catch {
-      setStatus({ kind: 'error', message: 'Could not create the workspace. Try another email.' });
+      setStatus({
+        kind: 'error',
+        message: 'Could not create the workspace. Try another email.',
+      });
     }
   }
 
   return (
     <form className="mt-6 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="fullName" placeholder="Full name" required />
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="companyName" placeholder="Company name" required />
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm sm:col-span-2" name="email" placeholder="Email" type="email" required />
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm sm:col-span-2" minLength={12} name="password" placeholder="Password" type="password" required />
-      <Button className="sm:col-span-2" disabled={status.kind === 'loading'} type="submit">
+      <input
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+        name="fullName"
+        placeholder="Full name"
+        required
+      />
+      <input
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+        name="companyName"
+        placeholder="Company name"
+        required
+      />
+      <input
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm sm:col-span-2"
+        name="email"
+        placeholder="Email"
+        type="email"
+        required
+      />
+      <input
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm sm:col-span-2"
+        minLength={12}
+        name="password"
+        placeholder="Password"
+        type="password"
+        required
+      />
+      <Button
+        className="sm:col-span-2"
+        disabled={status.kind === 'loading'}
+        type="submit"
+      >
         {status.kind === 'loading' ? 'Creating...' : 'Start onboarding'}
       </Button>
       <div className="sm:col-span-2">
@@ -87,19 +163,35 @@ export function ForgotPasswordForm(): React.ReactElement {
     const form = new FormData(event.currentTarget);
     setStatus({ kind: 'loading', message: 'Sending reset link...' });
     try {
-      const response = await apiPost<{ message: string }, Record<string, string>>('/auth/forgot-password', {
+      const response = await apiPost<
+        { message: string },
+        Record<string, string>
+      >('/auth/forgot-password', {
         email: String(form.get('email') ?? ''),
       });
       setStatus({ kind: 'success', message: response.message });
     } catch {
-      setStatus({ kind: 'error', message: 'Could not send reset instructions.' });
+      setStatus({
+        kind: 'error',
+        message: 'Could not send reset instructions.',
+      });
     }
   }
 
   return (
     <form className="mt-6 space-y-4" onSubmit={submit}>
-      <input className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm" name="email" placeholder="Email" type="email" required />
-      <Button className="w-full" disabled={status.kind === 'loading'} type="submit">
+      <input
+        className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm"
+        name="email"
+        placeholder="Email"
+        type="email"
+        required
+      />
+      <Button
+        className="w-full"
+        disabled={status.kind === 'loading'}
+        type="submit"
+      >
         {status.kind === 'loading' ? 'Sending...' : 'Send reset link'}
       </Button>
       <FormStatus status={status} />
@@ -115,7 +207,10 @@ export function OnboardingForm(): React.ReactElement {
     event.preventDefault();
     const token = getAccessToken();
     if (!token) {
-      setStatus({ kind: 'error', message: 'Please sign in before creating a property.' });
+      setStatus({
+        kind: 'error',
+        message: 'Please sign in before creating a property.',
+      });
       router.push('/login');
       return;
     }
@@ -123,7 +218,10 @@ export function OnboardingForm(): React.ReactElement {
     const form = new FormData(event.currentTarget);
     setStatus({ kind: 'loading', message: 'Creating property...' });
     try {
-      const companies = await apiGet<CompanySummary[]>('/companies/mine', token);
+      const companies = await apiGet<CompanySummary[]>(
+        '/companies/mine',
+        token,
+      );
       const company = companies[0];
       if (!company) {
         throw new Error('No company found.');
@@ -143,30 +241,78 @@ export function OnboardingForm(): React.ReactElement {
         },
         token,
       );
-      setStatus({ kind: 'success', message: 'Property created. Opening dashboard...' });
-      router.push('/');
+      setStatus({
+        kind: 'success',
+        message: 'Property created. Opening dashboard...',
+      });
+      router.push('/dashboard');
     } catch {
-      setStatus({ kind: 'error', message: 'Could not create property. Check the fields and try again.' });
+      setStatus({
+        kind: 'error',
+        message: 'Could not create property. Check the fields and try again.',
+      });
     }
   }
 
   return (
     <form className="mt-8 grid gap-4 md:grid-cols-2" onSubmit={submit}>
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="name" placeholder="Property name" required />
-      <select className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="propertyType">
+      <input
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+        name="name"
+        placeholder="Property name"
+        required
+      />
+      <select
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+        name="propertyType"
+      >
         <option value="HOTEL">Hotel</option>
         <option value="APARTMENT">Apartment</option>
         <option value="VILLA">Villa</option>
         <option value="GUESTHOUSE">Guesthouse</option>
         <option value="AIRBNB">Airbnb</option>
       </select>
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="address" placeholder="Address" required />
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="city" placeholder="City" required />
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="country" placeholder="Country" required />
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="email" placeholder="Property email" type="email" />
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="currency" placeholder="Currency" defaultValue="USD" />
-      <input className="h-11 rounded-md border border-slate-200 px-3 text-sm" name="timezone" placeholder="Timezone" defaultValue="Europe/Warsaw" />
-      <Button className="md:col-span-2" disabled={status.kind === 'loading'} type="submit">
+      <input
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+        name="address"
+        placeholder="Address"
+        required
+      />
+      <input
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+        name="city"
+        placeholder="City"
+        required
+      />
+      <input
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+        name="country"
+        placeholder="Country"
+        required
+      />
+      <input
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+        name="email"
+        placeholder="Property email"
+        type="email"
+      />
+      <input
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+        name="currency"
+        placeholder="Currency"
+        defaultValue="USD"
+      />
+      <input
+        className="h-11 rounded-md border border-slate-200 px-3 text-sm"
+        name="timezone"
+        placeholder="Timezone"
+        defaultValue="Europe/Warsaw"
+      />
+      <Button
+        className="md:col-span-2"
+        disabled={status.kind === 'loading'}
+        type="submit"
+      >
         {status.kind === 'loading' ? 'Creating property...' : 'Create property'}
       </Button>
       <div className="md:col-span-2">
@@ -176,7 +322,9 @@ export function OnboardingForm(): React.ReactElement {
   );
 }
 
-function FormStatus({ status }: Readonly<{ status: Status }>): React.ReactElement | null {
+function FormStatus({
+  status,
+}: Readonly<{ status: Status }>): React.ReactElement | null {
   if (status.kind === 'idle' || !status.message) {
     return null;
   }
@@ -186,5 +334,11 @@ function FormStatus({ status }: Readonly<{ status: Status }>): React.ReactElemen
       : status.kind === 'success'
         ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
         : 'border-blue-100 bg-blue-50 text-blue-700';
-  return <p className={`rounded-md border px-3 py-2 text-sm font-medium ${className}`}>{status.message}</p>;
+  return (
+    <p
+      className={`rounded-md border px-3 py-2 text-sm font-medium ${className}`}
+    >
+      {status.message}
+    </p>
+  );
 }

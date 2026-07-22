@@ -8,12 +8,16 @@
 
 body {
   background:
-    linear-gradient(180deg, rgba(239, 246, 255, 0.9) 0%, rgba(248, 250, 252, 1) 34%),
+    linear-gradient(
+      180deg,
+      rgba(239, 246, 255, 0.9) 0%,
+      rgba(248, 250, 252, 1) 34%
+    ),
     #f8fafc;
   color: #0f1f3d;
   font-feature-settings:
-    "rlig" 1,
-    "calt" 1;
+    'rlig' 1,
+    'calt' 1;
 }
 
 * {
