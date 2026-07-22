@@ -3,6 +3,7 @@ import { AppShell } from '../components/app-shell';
 import { MetricCard } from '../components/metric-card';
 import { DashboardActions } from '../components/dashboard-actions';
 import { CalendarViewToggle } from '../components/calendar-view-toggle';
+import Link from 'next/link';
 
 const metrics = [
   { label: "Today's check-ins", value: '7', trend: '+2' },
@@ -66,6 +67,18 @@ export default function DashboardPage(): React.ReactElement {
         </div>
 
         <aside className="space-y-4">
+          <section className="rounded-md border border-slate-200 bg-white p-5 shadow-[0_10px_28px_rgba(15,31,61,0.06)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-navy">Subscription</h2>
+                <p className="mt-1 text-sm text-slate-500">Manage plan limits, invoices, and upgrade options.</p>
+              </div>
+            </div>
+            <Link className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700" href="/subscription">
+              Open subscription
+            </Link>
+          </section>
+
           <section className="rounded-md border border-slate-200 bg-white p-5 shadow-[0_10px_28px_rgba(15,31,61,0.06)]">
             <h2 className="text-lg font-semibold text-navy">Booking sources</h2>
             <p className="mt-1 text-sm text-slate-500">Last 30 days</p>

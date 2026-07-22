@@ -33,7 +33,7 @@ const navigation = [
   ['Rooms', BedDouble],
   ['Housekeeping', Wrench],
   ['Payments', CreditCard],
-  ['Billing', CreditCard],
+  ['Subscription', CreditCard],
   ['Invoices', FileText],
   ['Automations', Sparkles],
   ['Messages', MessageSquare],
