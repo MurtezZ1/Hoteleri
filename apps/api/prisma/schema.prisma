@@ -1,0 +1,699 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum SystemRole {
+  PLATFORM_SUPER_ADMIN
+  HOTEL_OWNER
+  PROPERTY_MANAGER
+  RECEPTIONIST
+  FINANCE_STAFF
+  HOUSEKEEPING_STAFF
+}
+
+enum PropertyType {
+  HOTEL
+  APARTMENT
+  VILLA
+  HOSTEL
+  GUESTHOUSE
+  AIRBNB
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  DIRTY
+  CLEANING
+  READY
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+enum BookingSource {
+  DIRECT
+  WEBSITE
+  AIRBNB
+  BOOKING_COM
+  EXPEDIA
+  PHONE
+  WALK_IN
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  ONLINE
+  MOCK
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  REFUNDED
+  OVERDUE
+}
+
+enum AutomationTrigger {
+  RESERVATION_CREATED
+  RESERVATION_CONFIRMED
+  BEFORE_ARRIVAL
+  ON_ARRIVAL_DAY
+  AFTER_CHECK_IN
+  BEFORE_CHECK_OUT
+  AFTER_CHECK_OUT
+  PAYMENT_RECEIVED
+  PAYMENT_OVERDUE
+  INVOICE_GENERATED
+  RESERVATION_CANCELLED
+  REVIEW_REQUEST
+  CUSTOM_SCHEDULED
+}
+
+enum MessageChannel {
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum ChannelProvider {
+  AIRBNB
+  BOOKING_COM
+  EXPEDIA
+  AGODA
+  GOOGLE_HOTEL
+  TRIPADVISOR
+  DIRECT
+}
+
+enum HousekeepingStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+model User {
+  id                  String        @id @default(uuid())
+  email               String        @unique
+  passwordHash        String
+  fullName            String
+  phone               String?
+  status              UserStatus    @default(ACTIVE)
+  emailVerifiedAt     DateTime?
+  refreshTokenHash    String?
+  companyMemberships  CompanyUser[]
+  propertyAssignments PropertyUser[]
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  deletedAt           DateTime?
+}
+
+model Company {
+  id            String         @id @default(uuid())
+  name          String
+  legalName     String?
+  email         String?
+  phone         String?
+  currency      String         @default("USD")
+  timezone      String         @default("UTC")
+  language      String         @default("en")
+  users         CompanyUser[]
+  properties    Property[]
+  roles         Role[]
+  guests        Guest[]
+  reservations  Reservation[]
+  payments      Payment[]
+  invoices      Invoice[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  moduleRecords ModuleRecord[]
+  subscription  Subscription?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+}
+
+model CompanyUser {
+  id        String   @id @default(uuid())
+  companyId String
+  userId    String
+  roleId    String
+  isOwner   Boolean  @default(false)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, userId])
+  @@index([userId])
+}
+
+model Role {
+  id                 String           @id @default(uuid())
+  companyId          String?
+  name               String
+  systemRole         SystemRole?
+  company            Company?         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  permissions        RolePermission[]
+  companyUsers       CompanyUser[]
+  propertyUsers      PropertyUser[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([companyId, name])
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  key         String           @unique
+  description String
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Property {
+  id                  String               @id @default(uuid())
+  companyId           String
+  name                String
+  slug                String               @unique
+  description         String?
+  address             String
+  country             String
+  city                String
+  phone               String?
+  email               String?
+  currency            String
+  timezone            String
+  language            String               @default("en")
+  propertyType        PropertyType
+  checkInTime         String               @default("15:00")
+  checkOutTime        String               @default("11:00")
+  cancellationPolicy  String?
+  taxRate             Decimal              @default(0)
+  logoUrl             String?
+  imageUrls           String[]             @default([])
+  bookingSettings     Json?
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users               PropertyUser[]
+  roomTypes           RoomType[]
+  rooms               Room[]
+  reservations        Reservation[]
+  automations         Automation[]
+  messageTemplates    MessageTemplate[]
+  channelConnections  ChannelConnection[]
+  housekeepingTasks   HousekeepingTask[]
+  maintenanceIssues   MaintenanceIssue[]
+  bookingPageSetting  BookingPageSetting?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+
+  @@index([companyId])
+  @@index([country, city])
+}
+
+model PropertyUser {
+  id         String   @id @default(uuid())
+  propertyId String
+  userId     String
+  roleId     String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([propertyId, userId])
+  @@index([userId])
+}
+
+model RoomType {
+  id            String        @id @default(uuid())
+  companyId     String
+  propertyId    String
+  name          String
+  description   String?
+  capacity      Int
+  adultsLimit   Int
+  childrenLimit Int           @default(0)
+  basePrice     Decimal
+  weekendPrice  Decimal?
+  seasonalPrice Decimal?
+  amenities     RoomAmenity[]
+  rooms         Room[]
+  property      Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
+
+  @@index([companyId, propertyId])
+}
+
+model Room {
+  id            String            @id @default(uuid())
+  companyId     String
+  propertyId    String
+  roomTypeId    String
+  name          String
+  floor         String?
+  status        RoomStatus        @default(AVAILABLE)
+  cleaningStatus RoomStatus       @default(READY)
+  maintenanceStatus RoomStatus    @default(AVAILABLE)
+  imageUrls     String[]          @default([])
+  property      Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  roomType      RoomType          @relation(fields: [roomTypeId], references: [id])
+  reservations  ReservationRoom[]
+  housekeepingTasks HousekeepingTask[]
+  maintenanceIssues MaintenanceIssue[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deletedAt     DateTime?
+
+  @@unique([propertyId, name])
+  @@index([companyId, propertyId, roomTypeId])
+}
+
+model Amenity {
+  id        String        @id @default(uuid())
+  name      String        @unique
+  icon      String?
+  roomTypes RoomAmenity[]
+}
+
+model RoomAmenity {
+  roomTypeId String
+  amenityId  String
+  roomType   RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  amenity    Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([roomTypeId, amenityId])
+}
+
+model Guest {
+  id                  String             @id @default(uuid())
+  companyId           String
+  fullName            String
+  email               String?
+  phone               String?
+  country             String?
+  address             String?
+  identificationDoc   String?
+  dateOfBirth         DateTime?
+  notes               String?
+  preferences         Json?
+  totalStays          Int                @default(0)
+  totalSpending       Decimal            @default(0)
+  outstandingBalance  Decimal            @default(0)
+  company             Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reservations        Reservation[]
+  reservationGuests   ReservationGuest[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  deletedAt           DateTime?
+
+  @@index([companyId, email])
+  @@index([companyId, phone])
+}
+
+model Reservation {
+  id              String             @id @default(uuid())
+  companyId       String
+  propertyId      String
+  guestId         String
+  reservationCode String             @unique
+  status          ReservationStatus  @default(PENDING)
+  bookingSource   BookingSource      @default(DIRECT)
+  checkInDate     DateTime
+  checkOutDate    DateTime
+  adults          Int
+  children        Int                @default(0)
+  subtotal        Decimal
+  discount        Decimal            @default(0)
+  tax             Decimal            @default(0)
+  totalAmount     Decimal
+  paymentStatus   PaymentStatus      @default(UNPAID)
+  internalNotes   String?
+  history         Json?
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  property        Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  guest           Guest              @relation(fields: [guestId], references: [id])
+  guests          ReservationGuest[]
+  rooms           ReservationRoom[]
+  extras          ReservationExtra[]
+  payments        Payment[]
+  invoices        Invoice[]
+  messageLogs     MessageLog[]
+  channelReservations ChannelReservation[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+
+  @@index([companyId, propertyId, checkInDate, checkOutDate])
+  @@index([guestId])
+}
+
+model ReservationGuest {
+  reservationId String
+  guestId       String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  guest         Guest       @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@id([reservationId, guestId])
+}
+
+model ReservationRoom {
+  id            String      @id @default(uuid())
+  reservationId String
+  roomId        String
+  pricePerNight Decimal
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  room          Room        @relation(fields: [roomId], references: [id])
+
+  @@unique([reservationId, roomId])
+  @@index([roomId])
+}
+
+model ReservationExtra {
+  id            String      @id @default(uuid())
+  reservationId String
+  name          String
+  quantity      Int         @default(1)
+  unitPrice     Decimal
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  companyId     String
+  reservationId String
+  method        PaymentMethod
+  status        PaymentStatus @default(PARTIALLY_PAID)
+  amount        Decimal
+  currency      String
+  provider      String        @default("mock")
+  providerRef   String?
+  paidAt        DateTime?
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reservation   Reservation   @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Invoice {
+  id              String        @id @default(uuid())
+  companyId       String
+  reservationId   String
+  invoiceNumber   String
+  status          PaymentStatus @default(UNPAID)
+  subtotal        Decimal
+  tax             Decimal
+  discount        Decimal       @default(0)
+  total           Decimal
+  paidAmount      Decimal       @default(0)
+  remainingAmount Decimal
+  dueDate         DateTime?
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reservation     Reservation   @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  items           InvoiceItem[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([companyId, invoiceNumber])
+}
+
+model InvoiceItem {
+  id          String  @id @default(uuid())
+  invoiceId   String
+  description String
+  quantity    Int     @default(1)
+  unitPrice   Decimal
+  taxRate     Decimal @default(0)
+  total       Decimal
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Automation {
+  id          String            @id @default(uuid())
+  companyId   String
+  propertyId  String
+  trigger     AutomationTrigger
+  channel     MessageChannel
+  templateId  String
+  delayMinutes Int              @default(0)
+  enabled     Boolean           @default(true)
+  language    String            @default("en")
+  property    Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  template    MessageTemplate   @relation(fields: [templateId], references: [id])
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([companyId, propertyId, trigger])
+}
+
+model MessageTemplate {
+  id          String          @id @default(uuid())
+  companyId   String
+  propertyId  String
+  name        String
+  channel     MessageChannel
+  language    String          @default("en")
+  subject     String?
+  body        String
+  property    Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  automations Automation[]
+  messageLogs MessageLog[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([propertyId, name, language, channel])
+}
+
+model MessageLog {
+  id             String          @id @default(uuid())
+  companyId      String
+  reservationId  String?
+  templateId     String?
+  channel        MessageChannel
+  status         MessageStatus   @default(QUEUED)
+  recipient      String
+  provider       String          @default("mock")
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  errorDetails   String?
+  reservation    Reservation?    @relation(fields: [reservationId], references: [id])
+  template       MessageTemplate? @relation(fields: [templateId], references: [id])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([companyId, reservationId])
+}
+
+model ChannelConnection {
+  id          String          @id @default(uuid())
+  companyId   String
+  propertyId  String
+  provider    ChannelProvider
+  displayName String
+  enabled     Boolean         @default(false)
+  credentials Json?
+  settings    Json?
+  property    Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  reservations ChannelReservation[]
+  logs        IntegrationLog[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([propertyId, provider])
+}
+
+model ChannelReservation {
+  id                  String            @id @default(uuid())
+  companyId           String
+  reservationId        String?
+  channelConnectionId  String
+  externalReservationId String
+  payload              Json
+  reservation          Reservation?      @relation(fields: [reservationId], references: [id])
+  channelConnection    ChannelConnection @relation(fields: [channelConnectionId], references: [id], onDelete: Cascade)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@unique([channelConnectionId, externalReservationId])
+}
+
+model IntegrationLog {
+  id                  String            @id @default(uuid())
+  companyId            String
+  channelConnectionId  String
+  action              String
+  status              String
+  message             String?
+  payload             Json?
+  retryCount          Int               @default(0)
+  channelConnection   ChannelConnection @relation(fields: [channelConnectionId], references: [id], onDelete: Cascade)
+  createdAt           DateTime          @default(now())
+
+  @@index([companyId, channelConnectionId])
+}
+
+model HousekeepingTask {
+  id          String             @id @default(uuid())
+  companyId   String
+  propertyId  String
+  roomId      String
+  title       String
+  status      HousekeepingStatus @default(TODO)
+  priority    Int                @default(2)
+  assignedTo  String?
+  notes       String?
+  dueDate     DateTime?
+  completedAt DateTime?
+  property    Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  room        Room               @relation(fields: [roomId], references: [id])
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([companyId, propertyId, status])
+}
+
+model MaintenanceIssue {
+  id          String            @id @default(uuid())
+  companyId   String
+  propertyId  String
+  roomId      String?
+  title       String
+  description String
+  status      MaintenanceStatus @default(OPEN)
+  property    Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  room        Room?             @relation(fields: [roomId], references: [id])
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  companyId String
+  userId    String?
+  type      String
+  title     String
+  body      String
+  readAt    DateTime?
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([companyId, userId, readAt])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  companyId      String
+  userId         String?
+  action         String
+  entityType     String
+  entityId       String
+  previousValues Json?
+  newValues      Json?
+  ipAddress      String?
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user           User?    @relation(fields: [userId], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@index([companyId, entityType, entityId])
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  companyId String   @unique
+  plan      String
+  status    String
+  seats     Int      @default(3)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BookingPageSetting {
+  id                String   @id @default(uuid())
+  companyId         String
+  propertyId        String   @unique
+  enabled           Boolean  @default(true)
+  heroTitle         String
+  heroSubtitle      String?
+  brandColor        String   @default("#2563eb")
+  gallery           String[] @default([])
+  customDomain      String?
+  wifiPassword      String?
+  doorCode          String?
+  property          Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model ModuleRecord {
+  id        String   @id @default(uuid())
+  companyId String
+  moduleKey String
+  name      String
+  status    String
+  owner     String
+  amount    String
+  date      DateTime?
+  channel   String
+  notes     String?
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([companyId, moduleKey, status])
+  @@index([companyId, moduleKey, name])
+}
