@@ -2,8 +2,11 @@ node_modules
 .next
 dist
 coverage
+test-results
+playwright-report
 .env
 .env.local
 *.log
 apps/api/generated
+apps/api/storage
 *.tsbuildinfo

@@ -150,4 +150,38 @@ This hardening pass resolved several locally solvable production gaps before Loo
 - Added real invoice PDF generation/download at `GET /invoices/:invoiceId/download` using tenant-safe local storage and a non-fiscal disclaimer.
 - Ran repository Prettier formatting so `npm run format:check` now passes.
 
-Still incomplete: Playwright browser E2E, full Loop 10 room/rate/availability engine, strict concurrent payment duplicate integration tests, richer invoice PDF layout, real cloud storage, and real OTA/channel outbox provider dispatch.
+Still incomplete: full Loop 10 room/rate/availability engine, strict concurrent payment duplicate integration tests, richer invoice PDF layout, real cloud storage, and real OTA/channel outbox provider dispatch.
+
+## Loop 9 Browser E2E
+
+This pass added verified Playwright coverage and E2E database safety:
+
+- Added `DATABASE_URL_E2E` safety checks that refuse non-local and non-E2E database resets.
+- Added deterministic E2E reset/seed scripts.
+- Added Playwright desktop and mobile Chromium projects.
+- Added auth, calendar, front desk, tenant/security, PDF download, read-only, cross-tenant, and disabled-subscription coverage.
+- `npm run test:e2e` passed with 20/20 tests.
+- Documented E2E operations in `docs/E2E_TESTING.md`.
+- Documented unresolved dependency advisories in `docs/DEPENDENCY_RISK.md`.
+
+Browser E2E is now implemented and verified for the Loop 9 workflows.
+
+## Loop 10 Rooms, Rates and Availability Foundation
+
+This pass started Loop 10 with a production-oriented foundation:
+
+- Backend models added for rate plans, daily rates, rate restrictions, inventory overrides, cancellation policies, tax profiles/rules, fee rules, promotions, and room type photos.
+- Room/RoomType now track active and sale status separately from operational room status.
+- `/rooms` now has real APIs for room type CRUD, room CRUD, bulk room creation, bulk status updates, rate plans, bulk rates, restrictions, inventory overrides, policies, tax, fees, promotions, availability search, rate calendar, and pricing quote.
+- `/rooms` frontend is now a dedicated Rooms/Rate Calendar workspace instead of the generic module CRUD fallback.
+- Reservation creation now revalidates future sellability inside the serializable database transaction and does not use current room occupancy status as future-date availability.
+- Availability calculation now considers physical rooms, reservations, calendar blocks, maintenance/out-of-service state, sale status, inventory overrides, stop sell, CTA, CTD, minimum stay, and maximum stay.
+- Pricing quote logic uses Prisma Decimal values for nightly rates, extra guests, promotions, and totals.
+
+Updated parity:
+
+- Rooms and Room Types: partial production CRUD and bulk operations are now implemented and verified locally.
+- Rates and Availability: foundation implemented and verified locally; full booking-engine/front-desk pricing integration remains incomplete.
+- Taxes/Fees/Promotions: backend foundations implemented; financial application to invoices/reservations remains incomplete.
+
+Remaining risk: the Rate Calendar UI is operational but not yet a full revenue-management grid, and centralized availability/pricing should be split into dedicated providers before the Booking Engine consumes it.

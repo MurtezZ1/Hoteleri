@@ -428,12 +428,69 @@ Date: 2026-07-23
 - `docker build -f apps/web/Dockerfile -t odeoniflow-web:local .`: passed.
 - Local regex secret scan: no real provider credentials found; only normal code references to token/password/secret variables matched.
 
+## Loop 9 Browser E2E Hardening
+
+Date: 2026-07-23
+
+### Completed
+
+- Added Playwright infrastructure with Chromium desktop and mobile projects.
+- Added E2E database reset safety checks requiring `DATABASE_URL_E2E`, local host, and an `e2e/test` database name marker.
+- Added deterministic E2E seed for active, read-only, cross-tenant, and disabled-subscription tenants.
+- Added browser E2E coverage for auth redirects, real login, invalid login, session access, and logout.
+- Added calendar E2E coverage for room rows, reservation bars, block bars, filters, search, create reservation, edit stay, conflict rollback, block edit/delete/stale rejection, read-only denial, cross-tenant denial, keyboard-accessible forms, and mobile fallback.
+- Added Front Desk E2E coverage for arrivals/departures, maintenance assignment denial, eligible check-in, payment idempotency, invoice generation/PDF download, checkout room dirty state, housekeeping task creation, no-show, invalid check-in, and read-only denial.
+- Added tenant/security E2E coverage for protected API denial, cross-tenant reservation/invoice/block denial, disabled subscription denial, read-only mutation denial, arbitrary invoice path denial, and malformed ID handling.
+- Added `docs/E2E_TESTING.md` and `docs/DEPENDENCY_RISK.md`.
+
+### Verification Results
+
+- `npm run db:e2e:reset`: passed.
+- `npm run db:e2e:seed`: passed.
+- `npm run test:e2e`: passed, 20/20 Playwright tests.
+- `npm audit --audit-level=moderate`: failed on documented transitive Next.js `postcss`/`sharp` advisories; no force fix applied.
+
 ### Remaining Hardening Risk
 
 - `npm audit --audit-level=moderate`: still fails on Next transitive `postcss`/`sharp` advisories; npm currently suggests `npm audit fix --force`, which would apply a breaking downgrade path and was not run.
-- Browser E2E infrastructure and Playwright workflow tests are still missing.
 - Outbox dispatcher is local/mock; real OTA/channel publishing is not active.
 - Payment idempotency has unit behavior, but true concurrent duplicate integration testing still needs a database-level parallel test.
 - Invoice PDF is real and valid but intentionally minimal; rich templates, logo handling, cloud storage, and fiscal compliance are not implemented.
 - Property policy engine covers core flags but not full timezone/DST/early-check-in/no-show cutoff scenarios yet.
-- Loop 10 was not started in this pass because browser E2E and full room/rate/availability work are large enough to require a separate implementation loop.
+- Loop 10 foundation started after Playwright passed: room/rate/availability models, APIs, reservation revalidation, and `/rooms` rate calendar workspace are now implemented locally.
+
+## Loop 10 - Rooms, Rates and Availability Foundation
+
+Date: 2026-07-23
+
+### Completed
+
+- Added Prisma domain models for `RatePlan`, `DailyRate`, `RateRestriction`, `InventoryOverride`, `CancellationPolicy`, `TaxProfile`, `TaxRule`, `FeeRule`, `Promotion`, and `RoomTypePhoto`.
+- Added `SaleStatus`, `RatePlanType`, `RateRestrictionType`, `FeeRuleType`, and `PromotionType`.
+- Extended `RoomType` and `Room` with active/sale-state fields.
+- Added Rooms API CRUD/bulk operations for room types, rooms, bulk room creation, and bulk room status updates.
+- Added rate plan creation/listing, bulk daily rate updates, restriction upsert, inventory override upsert, cancellation policy, tax profile, fee rule, promotion, availability search, rate calendar, and pricing quote endpoints.
+- Added availability calculation that uses physical active rooms, reservations, calendar blocks, room maintenance/out-of-service states, sale status, inventory overrides, stop sell, CTA/CTD, min stay, and max stay.
+- Added Decimal-safe pricing quote logic using rate plans, daily rates, extra guest charges, and promotions.
+- Strengthened reservation creation revalidation inside the serializable transaction with room active/sale/maintenance checks, calendar block checks, and stop-sell inventory override checks.
+- Added `/rooms` frontend workspace for room types, physical rooms, rate plans, 14-day rate updates, and availability visibility.
+- Added migration `20260723005724_init`.
+
+### Verification Results
+
+- `npm run db:generate`: passed.
+- `npm run db:migrate`: migration `20260723005724_init` created/applied.
+- `npm run format:check`: passed after formatting.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run test`: passed; API 51/51 and Web 2/2.
+- `npm run build`: passed; `/rooms` included in static routes.
+- `npm run db:e2e:reset`, `npm run db:e2e:seed`, `npm run test:e2e`: passed; 20/20 Playwright tests.
+
+### Remaining Loop 10 Risk
+
+- Rate calendar UI is a first operational workspace, not a full spreadsheet-grade editor.
+- Availability/pricing services are implemented inside `RoomsService`; later refactor should split them into dedicated `AvailabilityService` and `PricingService` providers once more consumers exist.
+- Reservation create revalidates selected rooms and stop-sell overrides, but it does not yet auto-price from `PricingService`.
+- Front Desk and future Booking Engine are not fully wired to pricing quotes and restrictions.
+- Taxes/fees/promotions have CRUD foundations, but checkout/invoice calculation still uses existing reservation totals.

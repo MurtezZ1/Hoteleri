@@ -15,6 +15,7 @@ import {
   Prisma,
   ReservationStatus,
   RoomStatus,
+  SaleStatus,
 } from '@prisma/client';
 import { createHash } from 'crypto';
 import { mkdir, writeFile } from 'fs/promises';
@@ -1396,6 +1397,70 @@ export class ReservationsService {
             throw new ConflictException(
               `Room ${conflicts[0]?.room.name ?? 'selected'} is already booked for the requested dates.`,
             );
+          }
+
+          const selectedRooms = await tx.room.findMany({
+            where: {
+              id: { in: dto.roomIds },
+              propertyId: dto.propertyId,
+              deletedAt: null,
+              isActive: true,
+            },
+            include: { roomType: true },
+          });
+          if (selectedRooms.length !== dto.roomIds.length) {
+            throw new ConflictException({
+              code: 'ROOM_UNAVAILABLE',
+              message: 'One or more selected rooms are no longer available.',
+            });
+          }
+          const unavailableRoom = selectedRooms.find(
+            (room) =>
+              room.saleStatus !== SaleStatus.OPEN ||
+              room.roomType.saleStatus !== SaleStatus.OPEN ||
+              !room.roomType.isActive ||
+              room.status === RoomStatus.MAINTENANCE ||
+              room.status === RoomStatus.OUT_OF_SERVICE ||
+              room.maintenanceStatus === RoomStatus.MAINTENANCE,
+          );
+          if (unavailableRoom) {
+            throw new ConflictException({
+              code: 'ROOM_UNAVAILABLE',
+              message: `Room ${unavailableRoom.name} cannot be sold for the selected stay.`,
+            });
+          }
+          const blockedRooms = await tx.calendarBlock.findMany({
+            where: {
+              roomId: { in: dto.roomIds },
+              propertyId: dto.propertyId,
+              deletedAt: null,
+              startDate: { lt: checkOutDate },
+              endDate: { gt: checkInDate },
+            },
+            include: { room: true },
+            take: 1,
+          });
+          if (blockedRooms.length > 0) {
+            throw new ConflictException({
+              code: 'ROOM_BLOCKED',
+              message: `Room ${blockedRooms[0]?.room.name ?? 'selected'} has a calendar block for the selected stay.`,
+            });
+          }
+          const stopSellOverrides = await tx.inventoryOverride.findMany({
+            where: {
+              propertyId: dto.propertyId,
+              roomTypeId: { in: selectedRooms.map((room) => room.roomTypeId) },
+              stopSell: true,
+              date: { gte: checkInDate, lt: checkOutDate },
+            },
+            take: 1,
+          });
+          if (stopSellOverrides.length > 0) {
+            throw new ConflictException({
+              code: 'STOP_SELL',
+              message:
+                'Inventory is closed for sale on one or more selected nights.',
+            });
           }
 
           const totalAmount = new Prisma.Decimal(dto.subtotal)

@@ -75,6 +75,37 @@ enum RoomStatus {
   OUT_OF_SERVICE
 }
 
+enum SaleStatus {
+  OPEN
+  CLOSED
+  STOP_SELL
+}
+
+enum RatePlanType {
+  STANDARD
+  NON_REFUNDABLE
+  PACKAGE
+  CORPORATE
+}
+
+enum RateRestrictionType {
+  MIN_STAY
+  MAX_STAY
+  CTA
+  CTD
+  STOP_SELL
+}
+
+enum FeeRuleType {
+  FIXED
+  PERCENTAGE
+}
+
+enum PromotionType {
+  PERCENTAGE
+  FIXED
+}
+
 enum ReservationStatus {
   PENDING
   CONFIRMED
@@ -503,6 +534,14 @@ model Property {
   housekeepingTasks   HousekeepingTask[]
   maintenanceIssues   MaintenanceIssue[]
   calendarBlocks      CalendarBlock[]
+  ratePlans           RatePlan[]
+  dailyRates          DailyRate[]
+  rateRestrictions    RateRestriction[]
+  inventoryOverrides  InventoryOverride[]
+  cancellationPolicies CancellationPolicy[]
+  taxProfiles         TaxProfile[]
+  feeRules            FeeRule[]
+  promotions          Promotion[]
   bookingPageSetting  BookingPageSetting?
   invitations         UserInvitation[]
   whatsappMessages    WhatsAppMessage[]
@@ -541,8 +580,15 @@ model RoomType {
   basePrice     Decimal
   weekendPrice  Decimal?
   seasonalPrice Decimal?
+  isActive      Boolean       @default(true)
+  saleStatus    SaleStatus    @default(OPEN)
   amenities     RoomAmenity[]
+  photos        RoomTypePhoto[]
   rooms         Room[]
+  ratePlans     RatePlan[]
+  dailyRates    DailyRate[]
+  rateRestrictions RateRestriction[]
+  inventoryOverrides InventoryOverride[]
   property      Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -562,6 +608,8 @@ model Room {
   cleaningStatus RoomStatus       @default(READY)
   maintenanceStatus RoomStatus    @default(AVAILABLE)
   imageUrls     String[]          @default([])
+  isActive      Boolean           @default(true)
+  saleStatus    SaleStatus        @default(OPEN)
   property      Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   roomType      RoomType          @relation(fields: [roomTypeId], references: [id])
   reservations  ReservationRoom[]
@@ -570,6 +618,7 @@ model Room {
   housekeepingTasks HousekeepingTask[]
   maintenanceIssues MaintenanceIssue[]
   calendarBlocks CalendarBlock[]
+  inventoryOverrides InventoryOverride[]
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   deletedAt     DateTime?
@@ -593,6 +642,192 @@ model RoomAmenity {
   amenity    Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
 
   @@id([roomTypeId, amenityId])
+}
+
+model RoomTypePhoto {
+  id          String   @id @default(uuid())
+  companyId   String
+  propertyId  String
+  roomTypeId  String
+  url         String
+  altText     String?
+  sortOrder   Int      @default(0)
+  roomType    RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId, propertyId, roomTypeId])
+}
+
+model RatePlan {
+  id                    String             @id @default(uuid())
+  companyId             String
+  propertyId            String
+  roomTypeId            String
+  name                  String
+  code                  String
+  type                  RatePlanType       @default(STANDARD)
+  currency              String
+  basePrice             Decimal
+  includedOccupancy     Int                @default(1)
+  extraAdultPrice       Decimal            @default(0)
+  extraChildPrice       Decimal            @default(0)
+  active                Boolean            @default(true)
+  cancellationPolicyId  String?
+  property              Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  roomType              RoomType           @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  cancellationPolicy    CancellationPolicy? @relation(fields: [cancellationPolicyId], references: [id])
+  dailyRates            DailyRate[]
+  restrictions          RateRestriction[]
+  promotions            Promotion[]
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  deletedAt             DateTime?
+
+  @@unique([propertyId, code])
+  @@index([companyId, propertyId, roomTypeId])
+}
+
+model DailyRate {
+  id          String   @id @default(uuid())
+  companyId   String
+  propertyId  String
+  roomTypeId  String
+  ratePlanId  String
+  date        DateTime
+  price       Decimal
+  currency    String
+  closed      Boolean  @default(false)
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  roomType    RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  ratePlan    RatePlan @relation(fields: [ratePlanId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([ratePlanId, date])
+  @@index([companyId, propertyId, roomTypeId, date])
+}
+
+model RateRestriction {
+  id          String              @id @default(uuid())
+  companyId   String
+  propertyId  String
+  roomTypeId  String
+  ratePlanId  String?
+  date        DateTime
+  type        RateRestrictionType
+  value       Int                 @default(1)
+  active      Boolean             @default(true)
+  property    Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  roomType    RoomType            @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  ratePlan    RatePlan?           @relation(fields: [ratePlanId], references: [id], onDelete: Cascade)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([propertyId, roomTypeId, ratePlanId, date, type])
+  @@index([companyId, propertyId, date, type])
+}
+
+model InventoryOverride {
+  id          String    @id @default(uuid())
+  companyId   String
+  propertyId  String
+  roomTypeId  String
+  roomId      String?
+  date        DateTime
+  quantity    Int
+  stopSell    Boolean   @default(false)
+  reason      String?
+  property    Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  roomType    RoomType  @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  room        Room?     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([propertyId, roomTypeId, roomId, date])
+  @@index([companyId, propertyId, roomTypeId, date])
+}
+
+model CancellationPolicy {
+  id          String     @id @default(uuid())
+  companyId   String
+  propertyId  String
+  name        String
+  description String?
+  refundableUntilHoursBeforeCheckIn Int?
+  penaltyPercent Decimal @default(0)
+  active      Boolean    @default(true)
+  property    Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  ratePlans   RatePlan[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([propertyId, name])
+  @@index([companyId, propertyId])
+}
+
+model TaxProfile {
+  id          String    @id @default(uuid())
+  companyId   String
+  propertyId  String
+  name        String
+  active      Boolean   @default(true)
+  property    Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  rules       TaxRule[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([propertyId, name])
+  @@index([companyId, propertyId])
+}
+
+model TaxRule {
+  id          String     @id @default(uuid())
+  taxProfileId String
+  name        String
+  rate        Decimal
+  compound    Boolean    @default(false)
+  taxProfile  TaxProfile @relation(fields: [taxProfileId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model FeeRule {
+  id          String      @id @default(uuid())
+  companyId   String
+  propertyId  String
+  name        String
+  type        FeeRuleType
+  value       Decimal
+  taxable     Boolean     @default(true)
+  active      Boolean     @default(true)
+  property    Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([propertyId, name])
+  @@index([companyId, propertyId])
+}
+
+model Promotion {
+  id          String        @id @default(uuid())
+  companyId   String
+  propertyId  String
+  ratePlanId  String?
+  code        String
+  name        String
+  type        PromotionType
+  value       Decimal
+  startsAt    DateTime
+  endsAt      DateTime
+  active      Boolean       @default(true)
+  property    Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  ratePlan    RatePlan?     @relation(fields: [ratePlanId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([propertyId, code])
+  @@index([companyId, propertyId, startsAt, endsAt])
 }
 
 model Guest {

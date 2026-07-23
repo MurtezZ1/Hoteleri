@@ -9,6 +9,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev --name init",
     "db:seed": "tsx prisma/seed.ts",
+    "db:e2e:reset": "tsx prisma/e2e-reset.ts",
+    "db:e2e:seed": "tsx prisma/e2e-seed.ts",
     "test": "vitest run",
     "build": "nest build"
   },

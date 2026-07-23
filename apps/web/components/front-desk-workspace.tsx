@@ -412,6 +412,7 @@ export function FrontDeskWorkspace(): ReactElement {
           </div>
           <div className="grid w-full gap-2 md:w-auto md:grid-cols-4">
             <select
+              aria-label="Front desk property"
               className="h-10 rounded-md border border-slate-200 px-3 text-sm"
               onChange={(event) => setPropertyId(event.target.value)}
               value={propertyId ?? ''}
@@ -423,12 +424,14 @@ export function FrontDeskWorkspace(): ReactElement {
               ))}
             </select>
             <input
+              aria-label="Front desk date"
               className="h-10 rounded-md border border-slate-200 px-3 text-sm"
               onChange={(event) => setDate(event.target.value)}
               type="date"
               value={date}
             />
             <select
+              aria-label="Front desk status"
               className="h-10 rounded-md border border-slate-200 px-3 text-sm"
               onChange={(event) => setStatus(event.target.value)}
               value={status}
@@ -457,12 +460,17 @@ export function FrontDeskWorkspace(): ReactElement {
               }}
             >
               <input
+                aria-label="Front desk search"
                 className="min-w-0 flex-1 border-0 px-3 text-sm"
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Guest or code"
                 value={search}
               />
-              <button className="px-3 text-slate-500" type="submit">
+              <button
+                aria-label="Search front desk"
+                className="px-3 text-slate-500"
+                type="submit"
+              >
                 <Search className="h-4 w-4" />
               </button>
             </form>
@@ -471,12 +479,18 @@ export function FrontDeskWorkspace(): ReactElement {
       </section>
 
       {success ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">
+        <div
+          className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800"
+          role="status"
+        >
           {success}
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">
+        <div
+          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800"
+          role="alert"
+        >
           {error}
         </div>
       ) : null}
@@ -526,6 +540,7 @@ export function FrontDeskWorkspace(): ReactElement {
             return (
               <button
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                data-testid={`frontdesk-action-${action.key}`}
                 disabled={disabled}
                 key={action.key}
                 onClick={() => openAction(action)}
@@ -577,10 +592,10 @@ export function FrontDeskWorkspace(): ReactElement {
               </p>
               <div className="mt-3 flex flex-wrap gap-1">
                 {[room.status, room.cleaningStatus, room.maintenanceStatus].map(
-                  (value) => (
+                  (value, index) => (
                     <span
                       className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
-                      key={value}
+                      key={`${value}-${index}`}
                     >
                       {value}
                     </span>
@@ -624,6 +639,7 @@ export function FrontDeskWorkspace(): ReactElement {
                 <label className="text-sm font-semibold text-slate-700">
                   Reservation
                   <select
+                    aria-label="Front desk reservation"
                     className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
                     onChange={(event) =>
                       setSelectedReservationId(event.target.value)
@@ -653,6 +669,7 @@ export function FrontDeskWorkspace(): ReactElement {
                 <label className="text-sm font-semibold text-slate-700">
                   Room
                   <select
+                    aria-label="Front desk room"
                     className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
                     onChange={(event) => setSelectedRoomId(event.target.value)}
                     value={selectedRoomId}
@@ -671,6 +688,7 @@ export function FrontDeskWorkspace(): ReactElement {
                 <label className="text-sm font-semibold text-slate-700">
                   Amount
                   <input
+                    aria-label="Payment amount"
                     className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
                     min="0.01"
                     onChange={(event) => setAmount(event.target.value)}
@@ -690,6 +708,7 @@ export function FrontDeskWorkspace(): ReactElement {
                 <label className="text-sm font-semibold text-slate-700">
                   Reason/category
                   <input
+                    aria-label="Action reason"
                     className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
                     onChange={(event) => setReason(event.target.value)}
                     value={reason}
@@ -707,6 +726,7 @@ export function FrontDeskWorkspace(): ReactElement {
                 <label className="text-sm font-semibold text-slate-700 md:col-span-2">
                   Notes
                   <textarea
+                    aria-label="Action notes"
                     className="mt-1 min-h-24 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
                     onChange={(event) => setNotes(event.target.value)}
                     value={notes}

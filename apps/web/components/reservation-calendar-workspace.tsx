@@ -449,6 +449,7 @@ export function ReservationCalendarWorkspace(): ReactElement {
 
         <div className="mt-4 grid gap-2 md:grid-cols-4 xl:grid-cols-8">
           <select
+            aria-label="Property"
             className="h-10 rounded-md border border-slate-200 px-3 text-sm"
             onChange={(event) => setPropertyId(event.target.value)}
             value={propertyId}
@@ -460,12 +461,14 @@ export function ReservationCalendarWorkspace(): ReactElement {
             ))}
           </select>
           <input
+            aria-label="Calendar start date"
             className="h-10 rounded-md border border-slate-200 px-3 text-sm"
             onChange={(event) => setStartDate(event.target.value)}
             type="date"
             value={startDate}
           />
           <select
+            aria-label="Calendar view"
             className="h-10 rounded-md border border-slate-200 px-3 text-sm"
             onChange={(event) =>
               setView(event.target.value as 'day' | 'week' | 'multi')
@@ -477,6 +480,7 @@ export function ReservationCalendarWorkspace(): ReactElement {
             <option value="multi">14 days</option>
           </select>
           <select
+            aria-label="Room type"
             className="h-10 rounded-md border border-slate-200 px-3 text-sm"
             onChange={(event) => setRoomTypeId(event.target.value)}
             value={roomTypeId}
@@ -489,6 +493,7 @@ export function ReservationCalendarWorkspace(): ReactElement {
             ))}
           </select>
           <select
+            aria-label="Room"
             className="h-10 rounded-md border border-slate-200 px-3 text-sm"
             onChange={(event) => setRoomId(event.target.value)}
             value={roomId}
@@ -501,6 +506,7 @@ export function ReservationCalendarWorkspace(): ReactElement {
             ))}
           </select>
           <select
+            aria-label="Reservation status"
             className="h-10 rounded-md border border-slate-200 px-3 text-sm"
             onChange={(event) => setStatus(event.target.value)}
             value={status}
@@ -520,6 +526,7 @@ export function ReservationCalendarWorkspace(): ReactElement {
             ))}
           </select>
           <select
+            aria-label="Booking source"
             className="h-10 rounded-md border border-slate-200 px-3 text-sm"
             onChange={(event) => setSource(event.target.value)}
             value={source}
@@ -546,12 +553,17 @@ export function ReservationCalendarWorkspace(): ReactElement {
             }}
           >
             <input
+              aria-label="Search guest or code"
               className="min-w-0 flex-1 px-3 text-sm"
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Guest/code"
               value={search}
             />
-            <button className="px-3 text-slate-500" type="submit">
+            <button
+              aria-label="Search calendar"
+              className="px-3 text-slate-500"
+              type="submit"
+            >
               <Search className="h-4 w-4" />
             </button>
           </form>
@@ -577,12 +589,18 @@ export function ReservationCalendarWorkspace(): ReactElement {
       </section>
 
       {success ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">
+        <div
+          className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800"
+          role="status"
+        >
           {success}
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">
+        <div
+          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800"
+          role="alert"
+        >
           {error}
         </div>
       ) : null}
@@ -638,6 +656,7 @@ export function ReservationCalendarWorkspace(): ReactElement {
                   {days.map((day) => (
                     <button
                       className={`border-l border-slate-100 p-2 text-left hover:bg-blue-50 ${isWeekend(day) ? 'bg-amber-50/40' : ''}`}
+                      data-testid={`calendar-slot-${room.name}-${day}`}
                       key={`${room.id}-${day}`}
                       onClick={() => openCreate(room, day)}
                       onDragOver={(event) => event.preventDefault()}
@@ -663,6 +682,7 @@ export function ReservationCalendarWorkspace(): ReactElement {
                     .map((reservation) => (
                       <button
                         className={`z-20 m-2 rounded-md px-3 py-2 text-left text-xs font-semibold shadow-sm ring-1 ${statusClass(reservation.status)}`}
+                        data-testid={`reservation-bar-${reservation.confirmationNumber}`}
                         draggable={!reservation.isLocked}
                         key={reservation.id}
                         onClick={() => openDetails(reservation)}
@@ -698,6 +718,7 @@ export function ReservationCalendarWorkspace(): ReactElement {
                     .map((block) => (
                       <button
                         className="z-10 m-2 rounded-md bg-slate-800 px-3 py-2 text-left text-xs font-semibold text-white shadow-sm"
+                        data-testid={`calendar-block-${block.reason}`}
                         key={block.id}
                         onClick={() => openBlock(block)}
                         style={{

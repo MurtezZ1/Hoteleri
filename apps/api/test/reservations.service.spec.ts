@@ -28,6 +28,21 @@ const prisma = {
         update: vi.fn(),
       },
       reservationRoom: { findMany: vi.fn().mockResolvedValue([]) },
+      room: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'room-1',
+            name: '101',
+            roomTypeId: 'room-type-1',
+            saleStatus: 'OPEN',
+            status: 'AVAILABLE',
+            maintenanceStatus: 'AVAILABLE',
+            roomType: { saleStatus: 'OPEN', isActive: true },
+          },
+        ]),
+      },
+      calendarBlock: { findMany: vi.fn().mockResolvedValue([]) },
+      inventoryOverride: { findMany: vi.fn().mockResolvedValue([]) },
       reservation: {
         create: vi.fn().mockResolvedValue({ id: 'reservation-1' }),
       },
